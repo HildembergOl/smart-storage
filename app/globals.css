@@ -2,6 +2,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+html,
+body {
+  font-family: "Helvetica", "Arial", sans-serif;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -124,6 +129,32 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply font-mono;
   }
+}
+
+html ::-webkit-scrollbar {
+  width: 0.4rem;
+  height: 0.4rem;
+}
+html ::-webkit-scrollbar-thumb {
+  border-radius: 1rem;
+  background: #707070;
+}
+html ::-webkit-scrollbar-track {
+  background: #ededed;
+  text-decoration: none;
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.lucide {
+  stroke-width: 1.5;
+}
+
+.lucide * {
+  vector-effect: non-scaling-stroke;
 }

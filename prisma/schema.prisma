@@ -1,0 +1,311 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Empresa {
+  id                String   @id @default(cuid())
+  codigo            String   @unique
+  codigoPublico     String   @unique
+  situacao          String   @default("Ativo")
+  tipoEmpresa       String // "Fisica" | "Juridica"
+  razaoSocial       String
+  nomeFantasia      String?
+  cnpjCpf           String   @unique
+  inscricaoEstadual String?
+  endereco          String?
+  numero            String?
+  complemento       String?
+  bairro            String?
+  cidade            String?
+  estado            String?
+  observacoes       String?
+  email             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  estoques      Estoque[]
+  setores       Setor[]
+  posicoes      Posicao[]
+  produtos      Produto[]
+  pessoas       Pessoa[]
+  entradas      Entrada[]
+  saidas        Saida[]
+  contasPagar   ContaPagar[]
+  contasReceber ContaReceber[]
+}
+
+model Estoque {
+  id            String  @id @default(cuid())
+  codigo        String
+  codigoPublico String
+  descricao     String
+  situacao      String  @default("Ativo")
+  empresaId     String
+  locatarioId   String?
+
+  empresa         Empresa          @relation(fields: [empresaId], references: [id])
+  locatario       Pessoa?          @relation(fields: [locatarioId], references: [id])
+  posicoes        Posicao[]
+  produtoEstoques ProdutoEstoque[]
+  entradas        Entrada[]
+  saidas          Saida[]
+}
+
+model Setor {
+  id        String @id @default(cuid())
+  codigo    String
+  descricao String
+  empresaId String
+
+  empresa  Empresa   @relation(fields: [empresaId], references: [id])
+  posicoes Posicao[]
+}
+
+model Posicao {
+  id        String  @id @default(cuid())
+  codigo    String
+  estoqueId String
+  setorId   String
+  rua       String?
+  bloco     String?
+  andar     String?
+  locacao   String?
+  empresaId String
+
+  empresa         Empresa          @relation(fields: [empresaId], references: [id])
+  estoque         Estoque          @relation(fields: [estoqueId], references: [id])
+  setor           Setor            @relation(fields: [setorId], references: [id])
+  produtoPosicoes ProdutoPosicao[]
+}
+
+model Produto {
+  id            String  @id @default(cuid())
+  codigo        String
+  descricao     String
+  unidadeMedida String
+  marca         String?
+  categoria     String?
+  grupo         String?
+  subgrupo      String?
+  tipoProduto   String // "Produto" | "Servico"
+  tipoControle  String // "Padrao" | "Lote" | "Validade" | "Grade" | "NumeroSerie"
+  imagemCapa    String?
+  situacao      String  @default("Ativo")
+  empresaId     String
+
+  empresa            Empresa             @relation(fields: [empresaId], references: [id])
+  embalagens         Embalagem[]
+  produtoEstoques    ProdutoEstoque[]
+  produtoPosicoes    ProdutoPosicao[]
+  itensEntrada       ItemEntrada[]
+  itensSaida         ItemSaida[]
+  imagensMarketplace ImagemMarketplace[]
+}
+
+model Embalagem {
+  id            String  @id @default(cuid())
+  codigo        String
+  situacao      String  @default("Ativo")
+  unidadeMedida String
+  codigoBarras  String?
+  fator         Float   @default(1)
+  altura        Float?
+  largura       Float?
+  comprimento   Float?
+  cubagem       Float?
+  pesoBruto     Float?
+  pesoLiquido   Float?
+  produtoId     String
+
+  produto Produto @relation(fields: [produtoId], references: [id])
+}
+
+model ProdutoEstoque {
+  id         String  @id @default(cuid())
+  produtoId  String
+  estoqueId  String
+  precoCusto Float   @default(0)
+  ativo      Boolean @default(true)
+  quantidade Float   @default(0)
+
+  produto Produto @relation(fields: [produtoId], references: [id])
+  estoque Estoque @relation(fields: [estoqueId], references: [id])
+}
+
+model ProdutoPosicao {
+  id          String    @id @default(cuid())
+  produtoId   String
+  posicaoId   String
+  quantidade  Float     @default(0)
+  lote        String?
+  validade    DateTime?
+  grade       String?
+  numeroSerie String?
+
+  produto Produto @relation(fields: [produtoId], references: [id])
+  posicao Posicao @relation(fields: [posicaoId], references: [id])
+}
+
+model ImagemMarketplace {
+  id        String  @id @default(cuid())
+  produtoId String
+  url       String
+  estoqueId String?
+
+  produto Produto @relation(fields: [produtoId], references: [id])
+}
+
+model Pessoa {
+  id                String  @id @default(cuid())
+  codigo            String
+  tipoPessoa        String // "Fisica" | "Juridica"
+  razaoSocial       String
+  nomeFantasia      String?
+  cnpjCpf           String
+  inscricaoEstadual String?
+  endereco          String?
+  numero            String?
+  complemento       String?
+  bairro            String?
+  cidade            String?
+  estado            String?
+  observacoes       String?
+  email             String?
+  isCliente         Boolean @default(false)
+  isFornecedor      Boolean @default(false)
+  isFuncionario     Boolean @default(false)
+  isLocatario       Boolean @default(false)
+  isVeiculo         Boolean @default(false)
+  empresaId         String
+
+  empresa       Empresa        @relation(fields: [empresaId], references: [id])
+  estoques      Estoque[]
+  entradas      Entrada[]
+  saidas        Saida[]
+  contasPagar   ContaPagar[]
+  contasReceber ContaReceber[]
+}
+
+model Entrada {
+  id           String   @id @default(cuid())
+  codigo       String
+  estoqueId    String
+  pessoaId     String
+  numero       String
+  tipo         String // "NF-e" | "CF-e" | "Manual"
+  chaveNfe     String?
+  totalProduto Float    @default(0)
+  totalNfe     Float    @default(0)
+  observacoes  String?
+  empresaId    String
+  createdAt    DateTime @default(now())
+
+  empresa Empresa         @relation(fields: [empresaId], references: [id])
+  estoque Estoque         @relation(fields: [estoqueId], references: [id])
+  pessoa  Pessoa          @relation(fields: [pessoaId], references: [id])
+  itens   ItemEntrada[]
+  faturas FaturaEntrada[]
+  anexos  AnexoEntrada[]
+}
+
+model ItemEntrada {
+  id         String @id @default(cuid())
+  entradaId  String
+  produtoId  String
+  quantidade Float
+  valorUnit  Float
+
+  entrada Entrada @relation(fields: [entradaId], references: [id])
+  produto Produto @relation(fields: [produtoId], references: [id])
+}
+
+model FaturaEntrada {
+  id             String   @id @default(cuid())
+  entradaId      String
+  codigo         String
+  formaPagamento String
+  numero         String
+  vencimento     DateTime
+  valor          Float
+
+  entrada Entrada @relation(fields: [entradaId], references: [id])
+}
+
+model AnexoEntrada {
+  id        String  @id @default(cuid())
+  entradaId String
+  url       String
+  descricao String?
+
+  entrada Entrada @relation(fields: [entradaId], references: [id])
+}
+
+model Saida {
+  id           String   @id @default(cuid())
+  codigo       String
+  estoqueId    String
+  pessoaId     String
+  numero       String
+  tipo         String
+  chaveNfe     String?
+  totalProduto Float    @default(0)
+  totalNfe     Float    @default(0)
+  observacoes  String?
+  empresaId    String
+  createdAt    DateTime @default(now())
+
+  empresa Empresa     @relation(fields: [empresaId], references: [id])
+  estoque Estoque     @relation(fields: [estoqueId], references: [id])
+  pessoa  Pessoa      @relation(fields: [pessoaId], references: [id])
+  itens   ItemSaida[]
+}
+
+model ItemSaida {
+  id         String @id @default(cuid())
+  saidaId    String
+  produtoId  String
+  quantidade Float
+  valorUnit  Float
+
+  saida   Saida   @relation(fields: [saidaId], references: [id])
+  produto Produto @relation(fields: [produtoId], references: [id])
+}
+
+model ContaPagar {
+  id             String   @id @default(cuid())
+  codigo         String
+  numero         String
+  pessoaId       String
+  vencimento     DateTime
+  formaPagamento String
+  valor          Float
+  saldo          Float
+  situacao       String   @default("EmAberto") // "EmAberto" | "Pago" | "Vencido"
+  empresaId      String
+  createdAt      DateTime @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  pessoa  Pessoa  @relation(fields: [pessoaId], references: [id])
+}
+
+model ContaReceber {
+  id             String   @id @default(cuid())
+  codigo         String
+  numero         String
+  pessoaId       String
+  vencimento     DateTime
+  formaPagamento String
+  valor          Float
+  saldo          Float
+  situacao       String   @default("EmAberto") // "EmAberto" | "Recebido" | "Vencido"
+  empresaId      String
+  createdAt      DateTime @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  pessoa  Pessoa  @relation(fields: [pessoaId], references: [id])
+}
