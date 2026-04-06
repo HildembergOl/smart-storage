@@ -1,714 +1,289 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Save, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-import { useState } from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-interface Embalagem {
-  id: string;
-  codigo: string;
-  situacao: string;
-  unidadeMedida: string;
-  codigoBarras: string;
-  fator: number;
-  altura: number;
-  largura: number;
-  comprimento: number;
-  cubagem: number;
-  pesoBruto: number;
-  pesoLiquido: number;
+import { useBreadcrumb } from "@/lib/contexts/BreadcrumbContext";
+import { useApp } from "@/lib/contexts/AppContext";
+import { TabCadastroProduto } from "./_components/TabCadastroProduto";
+import { TabEmbalagemProduto, Embalagem } from "./_components/TabEmbalagemProduto";
+import { TabEstoquesProduto, ProductoStock } from "./_components/TabEstoquesProduto";
+import { TabPosicoesProduto, ProductPosition } from "./_components/TabPosicoesProduto";
+import { TabMovimentosProduto } from "./_components/TabMovimentosProduto";
+
+import { TabMarketplaceProduto, MarketplaceImage } from "./_components/TabMarketplaceProduto";
+
+interface ProductForm {
+  description: string;
+  unitOfMeasureId: string;
+  unitOfMeasureName: string;
+  brandId: string;
+  brandName: string;
+  categoryId: string;
+  categoryName: string;
+  groupId: string;
+  groupName: string;
+  subgroupId: string;
+  subgroupName: string;
+  productType: string;
+  controlType: string;
+  status: string;
 }
 
-const mockMovimentos = [
-  {
-    data: "14/03/2025",
-    tipo: "Entrada",
-    documento: "NF-002341",
-    pessoa: "Fornecedor ABC",
-    estoque: "EE 01",
-    qtd: 150,
-    valorUnit: 30.0,
-    total: 4500.0,
-  },
-  {
-    data: "10/03/2025",
-    tipo: "Saída",
-    documento: "NF-001823",
-    pessoa: "Empresa XYZ",
-    estoque: "EE 01",
-    qtd: 30,
-    valorUnit: 40.0,
-    total: 1200.0,
-  },
-];
+interface ProductData extends ProductForm {
+  id: string;
+  publicCode: string;
+  enterpriseId: string;
+  packages: Embalagem[];
+  productStocks: ProductoStock[];
+  productPositions: ProductPosition[];
+  marketplaceImages: MarketplaceImage[];
+}
 
-const mockProdutoEstoques = [
-  {
-    codigo: "EE 01",
-    descricao: "Estoque Principal",
-    precoCusto: 2.5,
-    ativo: true,
-    quantidade: 12,
-  },
-  {
-    codigo: "EE 02",
-    descricao: "Depósito Norte",
-    precoCusto: 2.5,
-    ativo: false,
-    quantidade: 0,
-  },
-];
-
-const formatCurrency = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    v,
-  );
+const emptyForm: ProductForm = {
+  description: "",
+  unitOfMeasureId: "",
+  unitOfMeasureName: "UN",
+  brandId: "",
+  brandName: "",
+  categoryId: "",
+  categoryName: "",
+  groupId: "",
+  groupName: "",
+  subgroupId: "",
+  subgroupName: "",
+  productType: "Produto",
+  controlType: "Padrao",
+  status: "Ativo",
+};
 
 export default function ProdutoFormPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [form, setForm] = useState({
-    codigo: "PRD001",
-    descricao: "Parafuso M8 Inox 50mm",
-    unidadeMedida: "UN",
-    marca: "Tramontina",
-    categoria: "Ferragens",
-    grupo: "",
-    subgrupo: "",
-    tipoProduto: "Produto",
-    tipoControle: "Padrao",
-    situacao: "Ativo",
-  });
+  const { setLabel } = useBreadcrumb();
+  const { enterpriseId: activeEnterpriseId } = useApp();
+  const isNew = id === "novo";
 
-  const [embalagens] = useState<Embalagem[]>([
-    {
-      id: "1",
-      codigo: "EMB-01",
-      situacao: "Ativo",
-      unidadeMedida: "CX",
-      codigoBarras: "7891234567890",
-      fator: 12,
-      altura: 5,
-      largura: 10,
-      comprimento: 15,
-      cubagem: 750,
-      pesoBruto: 1.2,
-      pesoLiquido: 1.0,
-    },
-  ]);
+  const [loading, setLoading] = useState(!isNew);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<ProductForm>(emptyForm);
+  const [productData, setProductData] = useState<ProductData | null>(null);
 
-  const [novaEmb, setNovaEmb] = useState({
-    codigo: "",
-    codigoBarras: "",
-    fator: 1,
-    altura: 0,
-    largura: 0,
-    comprimento: 0,
-  });
+  const fetchProduto = useCallback(async () => {
+    if (isNew) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/produtos/${id}`);
+      if (!res.ok) {
+        toast.error("Produto não encontrado");
+        router.push("/produtos");
+        return;
+      }
+      const data: ProductData = await res.json();
+      setProductData(data);
+      setForm({
+        description: data.description || "",
+        unitOfMeasureId: data.unitOfMeasureId || "",
+        unitOfMeasureName: data.unitOfMeasureName || "UN",
+        brandId: data.brandId || "",
+        brandName: data.brandName || "",
+        categoryId: data.categoryId || "",
+        categoryName: data.categoryName || "",
+        groupId: data.groupId || "",
+        groupName: data.groupName || "",
+        subgroupId: data.subgroupId || "",
+        subgroupName: data.subgroupName || "",
+        productType: data.productType || "Produto",
+        controlType: data.controlType || "Padrao",
+        status: data.status || "Ativo",
+      });
+      if (data.description) setLabel(id, data.description);
+    } catch {
+      toast.error("Erro ao carregar produto");
+      router.push("/produtos");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, isNew, router, setLabel]);
 
-  const field = (name: keyof typeof form) => ({
-    value: form[name] as string,
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-      setForm((prev) => ({ ...prev, [name]: e.target.value })),
-    className:
-      "bg-slate-900/50 border-slate-700 text-slate-200 placeholder:text-slate-500 text-sm h-9",
-  });
+  useEffect(() => { fetchProduto(); }, [fetchProduto]);
 
-  const handleSave = () => {
-    toast.success("Produto salvo com sucesso!");
+  const handleFieldChange = (field: keyof ProductForm, value: string) => {
+    setForm((f) => ({ ...f, [field]: value }));
   };
 
-  const calcCubagem = () =>
-    novaEmb.altura * novaEmb.largura * novaEmb.comprimento;
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.description) { toast.error("A descrição é obrigatória"); return; }
+    setSaving(true);
+    try {
+      const url = isNew ? "/api/produtos" : `/api/produtos/${id}`;
+      const method = isNew ? "POST" : "PATCH";
+      const body = isNew
+        ? { ...form, enterpriseId: activeEnterpriseId }
+        : form;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        toast.error("Erro ao salvar produto");
+        return;
+      }
+
+      const saved = await res.json();
+      toast.success(isNew ? "Produto criado com sucesso!" : "Alterações salvas!");
+      if (isNew) router.push(`/produtos/${saved.publicCode}`);
+      else fetchProduto();
+    } catch { toast.error("Erro ao conectar com o servidor"); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    try {
+      const res = await fetch(`/api/produtos/${id}`, { method: "DELETE" });
+      if (res.ok) { toast.success("Produto excluído!"); router.push("/produtos"); }
+      else toast.error("Erro ao excluir produto.");
+    } catch { toast.error("Erro de conexão."); }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20 min-h-[400px]">
+      <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
+    </div>
+  );
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="text-slate-400 hover:text-slate-200"
-            id="back-btn"
-          >
-            <ArrowLeft className="w-4 h-4" />
+          <Button type="button" variant="ghost" size="icon" onClick={() => router.push("/produtos")} className="text-slate-400 hover:text-white">
+            <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-white">Editar Produto</h1>
-            <p className="text-slate-400 text-sm">Código: {form.codigo}</p>
+            <h1 className="text-xl font-bold text-white">
+              {isNew ? "Novo Produto" : form.description}
+            </h1>
+            {!isNew && productData && (
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="outline" className="text-[10px] font-mono border-slate-700 text-slate-400">
+                  Código: {productData.id}
+                </Badge>
+                <Badge className={productData.status === "Ativo" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]" : "bg-red-500/20 text-red-400 border-red-500/30 text-[10px]"}>
+                  {productData.status}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
-        <Button
-          onClick={handleSave}
-          className="bg-sky-500 hover:bg-sky-400 text-white gap-2"
-          id="save-produto-btn"
-        >
-          <Save className="w-4 h-4" /> Salvar
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isNew && (
+            <AlertDialog>
+              <AlertDialogTrigger render={<Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-400 hover:bg-red-500/10" />}>
+                <Trash2 className="w-4 h-4" />
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-slate-800 border-slate-700">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-white">Excluir Produto</AlertDialogTitle>
+                  <AlertDialogDescription className="text-slate-400">
+                    Tem certeza que deseja excluir <strong className="text-slate-200">{form.description}</strong>?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="border-slate-600 text-slate-300 hover:bg-slate-700">Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600 text-white">Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <Button type="submit" form="produto-form" disabled={saving} className="bg-sky-500 hover:bg-sky-400 text-white gap-2 min-w-[140px]">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {isNew ? "Criar Produto" : "Salvar Alterações"}
+          </Button>
+        </div>
       </div>
 
-      <Card className="bg-slate-800/40 border-slate-700/50">
+      {/* Tabs */}
+      <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
         <Tabs defaultValue="cadastro">
-          <div className="px-6 pt-5 overflow-x-auto">
-            <TabsList className="bg-slate-900/50 border border-slate-700/50 min-w-max">
-              <TabsTrigger
-                value="cadastro"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 text-xs"
-                id="tab-prod-cadastro"
-              >
-                Cadastro
-              </TabsTrigger>
-              <TabsTrigger
-                value="embalagens"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 text-xs"
-                id="tab-prod-emb"
-              >
-                Embalagens
-              </TabsTrigger>
-              <TabsTrigger
-                value="estoques"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 text-xs"
-                id="tab-prod-est"
-              >
-                Estoques
-              </TabsTrigger>
-              <TabsTrigger
-                value="posicoes"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 text-xs"
-                id="tab-prod-pos"
-              >
-                Posições
-              </TabsTrigger>
-              <TabsTrigger
-                value="movimentos"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 text-xs"
-                id="tab-prod-mov"
-              >
-                Movimentos
-              </TabsTrigger>
-              <TabsTrigger
-                value="marketplace"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 text-xs"
-                id="tab-prod-mkt"
-              >
-                Marketplace
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          <CardContent className="pt-5">
-            {/* Aba 1: Cadastro */}
-            <TabsContent value="cadastro" className="mt-0 space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Código</Label>
-                  <Input {...field("codigo")} id="prod-codigo" />
-                </div>
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Descrição</Label>
-                  <Input {...field("descricao")} id="prod-desc" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">
-                    Unidade de Medida
-                  </Label>
-                  <Input
-                    {...field("unidadeMedida")}
-                    placeholder="UN, KG, LT..."
-                    id="prod-unidade"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Marca</Label>
-                  <Input {...field("marca")} id="prod-marca" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Categoria</Label>
-                  <Input {...field("categoria")} id="prod-categoria" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Grupo</Label>
-                  <Input {...field("grupo")} id="prod-grupo" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Subgrupo</Label>
-                  <Input {...field("subgrupo")} id="prod-subgrupo" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">
-                    Tipo de Produto
-                  </Label>
-                  <Select
-                    value={form.tipoProduto}
-                    onValueChange={(v) =>
-                      setForm((p) => ({ ...p, tipoProduto: v }))
-                    }
-                  >
-                    <SelectTrigger
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                      id="prod-tipo"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                      <SelectItem value="Produto">Produto</SelectItem>
-                      <SelectItem value="Servico">Serviço</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">
-                    Tipo de Controle
-                  </Label>
-                  <Select
-                    value={form.tipoControle}
-                    onValueChange={(v) =>
-                      setForm((p) => ({ ...p, tipoControle: v }))
-                    }
-                  >
-                    <SelectTrigger
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                      id="prod-controle"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                      <SelectItem value="Padrao">Padrão</SelectItem>
-                      <SelectItem value="Lote">Lote</SelectItem>
-                      <SelectItem value="Validade">Validade</SelectItem>
-                      <SelectItem value="Grade">Grade</SelectItem>
-                      <SelectItem value="NumeroSerie">
-                        Número de Série
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Situação</Label>
-                  <Select
-                    value={form.situacao}
-                    onValueChange={(v) =>
-                      setForm((p) => ({ ...p, situacao: v }))
-                    }
-                  >
-                    <SelectTrigger
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                      id="prod-situacao"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                      <SelectItem value="Ativo">Ativo</SelectItem>
-                      <SelectItem value="Inativo">Inativo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              {/* Image Upload */}
-              <div className="space-y-1.5">
-                <Label className="text-slate-300 text-xs">Imagem de Capa</Label>
-                <div
-                  className="border-2 border-dashed border-slate-700 rounded-lg p-6 text-center hover:border-sky-500/50 transition-colors cursor-pointer"
-                  id="prod-imagem-upload"
+          <CardHeader className="pb-0 border-b border-slate-700/50">
+            <TabsList className="bg-transparent border-none gap-6 p-0 h-10">
+              {[
+                { value: "cadastro", label: "Cadastro" },
+                ...(!isNew ? [
+                  { value: "embalagem", label: "Embalagem" },
+                  { value: "estoques", label: "Estoques" },
+                  { value: "posicoes", label: "Posições" },
+                  { value: "movimentos", label: "Movimentos" },
+                  { value: "marketplace", label: "Marketplace" },
+                ] : []),
+              ].map(({ value, label }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-sky-500 data-[state=active]:text-sky-400 rounded-none bg-transparent px-2 h-8 text-sm text-slate-400 transition-all"
                 >
-                  <p className="text-slate-400 text-sm">
-                    Clique para selecionar ou arraste uma imagem
-                  </p>
-                  <p className="text-slate-500 text-xs mt-1">
-                    PNG, JPG, WEBP — máximo 10MB
-                  </p>
-                </div>
-              </div>
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </CardHeader>
+
+          <CardContent className="pt-6">
+            <TabsContent value="cadastro" className="mt-0">
+              <form id="produto-form" onSubmit={handleSave}>
+                <TabCadastroProduto form={form} onChange={handleFieldChange} />
+              </form>
             </TabsContent>
 
-            {/* Aba 2: Embalagens */}
-            <TabsContent value="embalagens" className="mt-0 space-y-4">
-              <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-900/30 space-y-3">
-                <h3 className="text-slate-300 text-sm font-semibold">
-                  Nova Embalagem
-                </h3>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Código</Label>
-                    <Input
-                      value={novaEmb.codigo}
-                      onChange={(e) =>
-                        setNovaEmb((p) => ({ ...p, codigo: e.target.value }))
-                      }
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="emb-cod-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">
-                      Cód. Barras
-                    </Label>
-                    <Input
-                      value={novaEmb.codigoBarras}
-                      onChange={(e) =>
-                        setNovaEmb((p) => ({
-                          ...p,
-                          codigoBarras: e.target.value,
-                        }))
-                      }
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="emb-barras-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Fator</Label>
-                    <Input
-                      type="number"
-                      value={novaEmb.fator}
-                      onChange={(e) =>
-                        setNovaEmb((p) => ({ ...p, fator: +e.target.value }))
-                      }
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="emb-fator-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">
-                      Altura (cm)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={novaEmb.altura}
-                      onChange={(e) =>
-                        setNovaEmb((p) => ({ ...p, altura: +e.target.value }))
-                      }
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="emb-altura-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">
-                      Largura (cm)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={novaEmb.largura}
-                      onChange={(e) =>
-                        setNovaEmb((p) => ({ ...p, largura: +e.target.value }))
-                      }
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="emb-largura-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">
-                      Comprimento (cm)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={novaEmb.comprimento}
-                      onChange={(e) =>
-                        setNovaEmb((p) => ({
-                          ...p,
-                          comprimento: +e.target.value,
-                        }))
-                      }
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="emb-comp-input"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="text-slate-400 text-xs">
-                    Cubagem calculada:{" "}
-                    <span className="text-sky-400 font-semibold">
-                      {calcCubagem().toFixed(2)} cm³
-                    </span>
-                  </p>
-                  <Button
-                    size="sm"
-                    className="bg-sky-500 hover:bg-sky-400 text-white gap-1"
-                    id="add-emb-btn"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Adicionar
-                  </Button>
-                </div>
-              </div>
-              <div className="rounded-lg border border-slate-700/50 overflow-x-auto">
-                <table className="w-full text-sm min-w-[700px]">
-                  <thead className="bg-slate-800/40">
-                    <tr>
-                      {[
-                        "Código",
-                        "Situação",
-                        "Unid.",
-                        "Cód. Barras",
-                        "Fator",
-                        "Alt",
-                        "Larg",
-                        "Comp",
-                        "Cubagem",
-                        "Peso Br.",
-                        "Peso Lq.",
-                        "Ações",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left px-3 py-2 text-slate-400 text-xs font-semibold uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {embalagens.map((e) => (
-                      <tr
-                        key={e.id}
-                        className="border-t border-slate-700/30 hover:bg-slate-700/20"
-                      >
-                        <td className="px-3 py-2 text-slate-300 font-mono text-xs">
-                          {e.codigo}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge
-                            className={
-                              e.situacao === "Ativo"
-                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs"
-                                : "bg-red-500/20 text-red-400 border-red-500/30 text-xs"
-                            }
-                          >
-                            {e.situacao}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2 text-slate-300">
-                          {e.unidadeMedida}
-                        </td>
-                        <td className="px-3 py-2 text-slate-400 font-mono text-xs">
-                          {e.codigoBarras}
-                        </td>
-                        <td className="px-3 py-2 text-slate-300">{e.fator}</td>
-                        <td className="px-3 py-2 text-slate-400">{e.altura}</td>
-                        <td className="px-3 py-2 text-slate-400">
-                          {e.largura}
-                        </td>
-                        <td className="px-3 py-2 text-slate-400">
-                          {e.comprimento}
-                        </td>
-                        <td className="px-3 py-2 text-sky-400 font-semibold">
-                          {e.cubagem.toFixed(0)}
-                        </td>
-                        <td className="px-3 py-2 text-slate-400">
-                          {e.pesoBruto}
-                        </td>
-                        <td className="px-3 py-2 text-slate-400">
-                          {e.pesoLiquido}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-slate-400 hover:text-red-400"
-                            id={`del-emb-${e.id}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
+            {!isNew && (
+              <>
+                <TabsContent value="embalagem" className="mt-0">
+                  <TabEmbalagemProduto
+                    productPublicCode={id}
+                    embalagens={productData?.packages || []}
+                    onRefresh={fetchProduto}
+                  />
+                </TabsContent>
 
-            {/* Aba 3: Estoques do Produto */}
-            <TabsContent value="estoques" className="mt-0">
-              <div className="rounded-lg border border-slate-700/50 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-800/40">
-                    <tr>
-                      {[
-                        "Cód. Estoque",
-                        "Desc. Estoque",
-                        "Preço de Custo",
-                        "Ativo",
-                        "Qtd. Estoque",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left px-4 py-2.5 text-slate-400 text-xs font-semibold uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockProdutoEstoques.map((e, i) => (
-                      <tr
-                        key={i}
-                        className="border-t border-slate-700/30 hover:bg-slate-700/20"
-                      >
-                        <td className="px-4 py-3 text-slate-300 font-mono">
-                          {e.codigo}
-                        </td>
-                        <td className="px-4 py-3 text-slate-300">
-                          {e.descricao}
-                        </td>
-                        <td className="px-4 py-3 text-slate-300">
-                          {formatCurrency(e.precoCusto)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className={
-                              e.ativo
-                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs"
-                                : "bg-slate-700/50 text-slate-500 text-xs"
-                            }
-                          >
-                            {e.ativo ? "Sim" : "Não"}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-sky-400 font-bold">
-                          {e.quantidade}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
+                <TabsContent value="estoques" className="mt-0">
+                  <TabEstoquesProduto productStocks={productData?.productStocks || []} />
+                </TabsContent>
 
-            {/* Aba 4: Posições */}
-            <TabsContent value="posicoes" className="mt-0">
-              <p className="text-slate-500 text-sm text-center py-8">
-                Nenhuma posição vinculada a este produto.
-              </p>
-            </TabsContent>
+                <TabsContent value="posicoes" className="mt-0">
+                  <TabPosicoesProduto productPositions={productData?.productPositions || []} />
+                </TabsContent>
 
-            {/* Aba 5: Movimentos */}
-            <TabsContent value="movimentos" className="mt-0">
-              <div className="rounded-lg border border-slate-700/50 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-800/40">
-                    <tr>
-                      {[
-                        "Data",
-                        "Tipo",
-                        "Documento",
-                        "Pessoa",
-                        "Estoque",
-                        "Qtd",
-                        "Valor Unit.",
-                        "Total",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left px-3 py-2.5 text-slate-400 text-xs font-semibold uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockMovimentos.map((m, i) => (
-                      <tr
-                        key={i}
-                        className="border-t border-slate-700/30 hover:bg-slate-700/20"
-                      >
-                        <td className="px-3 py-2.5 text-slate-400">{m.data}</td>
-                        <td className="px-3 py-2.5">
-                          <Badge
-                            className={
-                              m.tipo === "Entrada"
-                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs"
-                                : "bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs"
-                            }
-                          >
-                            {m.tipo}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-300 font-mono text-xs">
-                          {m.documento}
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-300">
-                          {m.pessoa}
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-300">
-                          {m.estoque}
-                        </td>
-                        <td className="px-3 py-2.5 text-sky-400 font-semibold">
-                          {m.qtd}
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-300">
-                          {formatCurrency(m.valorUnit)}
-                        </td>
-                        <td className="px-3 py-2.5 text-emerald-400 font-semibold">
-                          {formatCurrency(m.total)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
+                <TabsContent value="movimentos" className="mt-0">
+                  <TabMovimentosProduto movimentos={[]} />
+                </TabsContent>
 
-            {/* Aba 6: Marketplace */}
-            <TabsContent value="marketplace" className="mt-0 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-slate-300 text-xs">Estoque</Label>
-                <Select>
-                  <SelectTrigger
-                    className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm max-w-xs"
-                    id="mkt-estoque-select"
-                  >
-                    <SelectValue placeholder="Selecione o estoque" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                    <SelectItem value="ee01">
-                      EE 01 — Estoque Principal
-                    </SelectItem>
-                    <SelectItem value="ee02">EE 02 — Depósito Norte</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div
-                className="border-2 border-dashed border-slate-700 rounded-lg p-8 text-center hover:border-sky-500/50 transition-colors cursor-pointer"
-                id="mkt-images-upload"
-              >
-                <p className="text-slate-400 text-sm">
-                  Clique para adicionar imagens do produto
-                </p>
-                <p className="text-slate-500 text-xs mt-1">
-                  Aceita múltiplas imagens (image/*)
-                </p>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-lg border border-slate-700/50 bg-slate-900/50 flex items-center justify-center text-slate-600"
-                  >
-                    <span className="text-xs">IMG {i}</span>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
+                <TabsContent value="marketplace" className="mt-0">
+                  <TabMarketplaceProduto images={productData?.marketplaceImages || []} />
+                </TabsContent>
+              </>
+            )}
           </CardContent>
         </Tabs>
       </Card>

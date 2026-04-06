@@ -1,780 +1,310 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save, Plus, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { mockPessoas } from "../../pessoas/page";
 
-const mockEstoques = [
-  {
-    id: "1",
-    codigo: "EE 01",
-    codigoPublico: "EE-PUB-01",
-    descricao: "Estoque Principal",
-    locatario: "",
-    situacao: "Ativo",
-  },
-  {
-    id: "2",
-    codigo: "EE 02",
-    codigoPublico: "EE-PUB-02",
-    descricao: "Depósito Norte",
-    locatario: "João Silva",
-    situacao: "Ativo",
-  },
-];
+import { useBreadcrumb } from "@/lib/contexts/BreadcrumbContext";
+import { TabOverviewEnterprise } from "./_components/TabEnterprise";
+import { DeleteEnterpriseDialog } from "../_components/DeleteEnterpriseDialog";
+import { TabStocks } from "./_components/TabStocks";
+import { TabSections } from "./_components/TabSections";
+import { TabPositions } from "./_components/TabPositions";
+import { Stock, Section, Position } from "./_components/logistic-columns";
 
-const mockSetores = [
-  { id: "1", codigo: "SET-A", descricao: "Setor A - Eletrônicos" },
-  { id: "2", codigo: "SET-B", descricao: "Setor B - Ferramentas" },
-];
+interface EnterpriseWithRelations {
+  id: bigint;
+  publicCode: string;
+  status: string;
+  enterpriseType: string;
+  legalName: string;
+  tradeName: string;
+  taxId: string;
+  stateRegistration: string;
+  email: string;
+  address: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  notes: string;
+  stocks: Stock[];
+  sections: Section[];
+  positions: Position[];
+}
 
-const mockPosicoes = [
-  {
-    id: "1",
-    codigo: "POS-A01-R01",
-    estoqueId: "EE 01",
-    setorId: "SET-A",
-    rua: "01",
-    bloco: "A",
-    andar: "1",
-    locacao: "01",
-  },
-];
-
-export default function EmpresaFormPage() {
+export default function EnterpriseFormPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const isNovo = id === "novo";
+  const { setLabel } = useBreadcrumb();
+  const isNew = id === "new";
 
-  const [form, setForm] = useState({
-    codigo: isNovo ? "" : "EMP001",
-    codigoPublico: isNovo ? "" : "SMART01",
-    situacao: "Ativo",
-    tipoEmpresa: "Juridica",
-    razaoSocial: isNovo ? "" : "Smart Tecnologia LTDA",
-    nomeFantasia: isNovo ? "" : "SmartTech",
-    cnpjCpf: isNovo ? "" : "12.345.678/0001-90",
-    inscricaoEstadual: "",
-    email: isNovo ? "" : "contato@smarttech.com",
-    endereco: isNovo ? "" : "Av. Paulista",
-    numero: isNovo ? "" : "1234",
-    complemento: "Sala 45",
-    bairro: "Bela Vista",
-    cidade: isNovo ? "" : "São Paulo",
-    estado: isNovo ? "" : "SP",
-    observacoes: "",
+  const [loading, setLoading] = useState(!isNew);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState<Partial<EnterpriseWithRelations>>({
+    publicCode: "",
+    status: "Ativo",
+    enterpriseType: "Juridica",
+    legalName: "",
+    tradeName: "",
+    taxId: "",
+    stateRegistration: "",
+    email: "",
+    address: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    notes: "",
+    stocks: [],
+    sections: [],
+    positions: [],
   });
 
-  const field = (name: keyof typeof form) => ({
-    value: form[name] as string,
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setForm((prev) => ({ ...prev, [name]: e.target.value })),
-    className:
-      "bg-slate-900/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-sky-500",
-  });
+  const fetchEnterprise = useCallback(async () => {
+    if (isNew) return;
+    try {
+      const response = await fetch(`/api/empresas/${id}`);
+      if (!response.ok) {
+        toast.error("Empresa não encontrada");
+        router.push("/empresas");
+        return;
+      }
+      const data = await response.json();
+      setFormData(data);
+      if (data.legalName) {
+        setLabel(id, data.legalName);
+      }
+    } catch (error) {
+      toast.error("Erro ao carregar dados da empresa");
+      router.push("/empresas");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, isNew, router, setLabel]);
 
-  const handleSave = () => {
-    toast.success("Empresa salva com sucesso!");
+  useEffect(() => {
+    fetchEnterprise();
+  }, [fetchEnterprise]);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev: Partial<EnterpriseWithRelations>) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData((prev: Partial<EnterpriseWithRelations>) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const url = isNew ? "/api/empresas" : `/api/empresas/${id}`;
+      const method = isNew ? "POST" : "PATCH";
+
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        toast.error("Erro ao salvar empresa");
+        return;
+      }
+
+      const savedData = await response.json();
+      toast.success(
+        isNew ? "Empresa criada com sucesso!" : "Alterações salvas!",
+      );
+
+      if (savedData.legalName) {
+        setLabel(id || savedData.publicCode, savedData.legalName);
+      }
+
+      if (isNew) {
+        router.push(`/empresas/${savedData.publicCode}`);
+      } else {
+        fetchEnterprise();
+      }
+    } catch (error) {
+      toast.error("Erro ao salvar empresa");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="text-slate-400 hover:text-slate-200"
-            id="back-btn"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-white">
-              {isNovo ? "Nova Empresa" : "Editar Empresa"}
-            </h1>
-            <p className="text-slate-400 text-sm">
-              {isNovo ? "Cadastre uma nova empresa" : `Código: ${form.codigo}`}
-            </p>
+    <>
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push("/empresas")}
+              className="text-slate-400 hover:text-white"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                {isNew ? "Nova Empresa" : formData.legalName}
+              </h1>
+              {!isNew && (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] uppercase font-mono border-slate-700 text-slate-400"
+                  >
+                    Público: {formData.publicCode}
+                  </Badge>
+                  <Badge
+                    className={
+                      formData.status === "Ativo"
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]"
+                        : "bg-red-500/20 text-red-400 border-red-500/30 text-[10px]"
+                    }
+                  >
+                    {formData.status}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {!isNew && (
+              <DeleteEnterpriseDialog
+                id={id}
+                onSuccess={() => router.push("/empresas")}
+              />
+            )}
+            <Button
+              type="submit"
+              form="enterprise-form"
+              disabled={saving}
+              className="bg-sky-500 hover:bg-sky-400 text-white gap-2 min-w-[140px]"
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {isNew ? "Criar Empresa" : "Salvar Alterações"}
+            </Button>
           </div>
         </div>
-        <Button
-          onClick={handleSave}
-          className="bg-sky-500 hover:bg-sky-400 text-white gap-2"
-          id="save-empresa-btn"
-        >
-          <Save className="w-4 h-4" />
-          Salvar
-        </Button>
+
+        <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
+          <Tabs defaultValue="overview">
+            <CardHeader className="pb-0 border-b border-slate-700/50">
+              <TabsList className="bg-transparent border-none gap-6 p-0 h-10">
+                <TabsTrigger
+                  value="overview"
+                  className="data-[state=active]:border-b-2 data-[state=active]:border-sky-500 data-[state=active]:text-sky-400 rounded-none bg-transparent px-2 h-8 text-sm text-slate-400 transition-all"
+                >
+                  Cadastro
+                </TabsTrigger>
+                {!isNew && (
+                  <>
+                    <TabsTrigger
+                      value="stocks"
+                      className="rounded-none bg-transparent px-2 h-8 text-sm text-slate-400 data-[state=active]:text-sky-400 data-[state=active]:border-b-2 data-[state=active]:border-sky-500 transition-all"
+                    >
+                      Estoques
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="sections"
+                      className="rounded-none bg-transparent px-2 h-8 text-sm text-slate-400 data-[state=active]:text-sky-400 data-[state=active]:border-b-2 data-[state=active]:border-sky-500 transition-all"
+                    >
+                      Setores
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="positions"
+                      className="rounded-none bg-transparent px-2 h-8 text-sm text-slate-400 data-[state=active]:text-sky-400 data-[state=active]:border-b-2 data-[state=active]:border-sky-500 transition-all"
+                    >
+                      Posições
+                    </TabsTrigger>
+                  </>
+                )}
+              </TabsList>
+            </CardHeader>
+
+            <CardContent className="pt-6">
+              <TabsContent value="overview" className="mt-0">
+                <form
+                  id="enterprise-form"
+                  onSubmit={handleSubmit}
+                  className="space-y-4"
+                >
+                  <TabOverviewEnterprise
+                    isNew={isNew}
+                    formData={formData}
+                    handleInputChange={handleInputChange}
+                    handleSelectChange={handleSelectChange}
+                  />
+                </form>
+              </TabsContent>
+
+              {!isNew && (
+                <>
+                  <TabsContent value="stocks" className="mt-0">
+                    <TabStocks
+                      enterpriseId={formData.id?.toString() || ""}
+                      stocks={formData.stocks || []}
+                      onRefresh={fetchEnterprise}
+                    />
+                  </TabsContent>
+                  <TabsContent value="sections" className="mt-0">
+                    <TabSections
+                      enterpriseId={formData.id?.toString() || ""}
+                      sections={formData.sections || []}
+                      onRefresh={fetchEnterprise}
+                    />
+                  </TabsContent>
+                  <TabsContent value="positions" className="mt-0">
+                    <TabPositions
+                      enterpriseId={formData.id?.toString() || ""}
+                      positions={formData.positions || []}
+                      stocks={formData.stocks || []}
+                      sections={formData.sections || []}
+                      onRefresh={fetchEnterprise}
+                    />
+                  </TabsContent>
+                </>
+              )}
+            </CardContent>
+          </Tabs>
+        </Card>
       </div>
-
-      <Card className="bg-slate-800/40 border-slate-700/50">
-        <Tabs defaultValue="cadastro">
-          <div className="px-6 pt-5">
-            <TabsList className="bg-slate-900/50 border border-slate-700/50">
-              <TabsTrigger
-                value="cadastro"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400"
-                id="tab-emp-cadastro"
-              >
-                Cadastro
-              </TabsTrigger>
-              <TabsTrigger
-                value="estoques"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400"
-                id="tab-emp-estoques"
-              >
-                Estoques
-              </TabsTrigger>
-              <TabsTrigger
-                value="setores"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400"
-                id="tab-emp-setores"
-              >
-                Setores
-              </TabsTrigger>
-              <TabsTrigger
-                value="posicoes"
-                className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400"
-                id="tab-emp-posicoes"
-              >
-                Posições
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <CardContent className="pt-5">
-            {/* Aba 1: Cadastro */}
-            <TabsContent value="cadastro" className="mt-0 space-y-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Código</Label>
-                  <Input
-                    {...field("codigo")}
-                    placeholder="EMP001"
-                    id="emp-codigo"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">
-                    Código Público
-                  </Label>
-                  <Input
-                    {...field("codigoPublico")}
-                    placeholder="PUB001"
-                    id="emp-codigo-publico"
-                    disabled
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Situação</Label>
-                  <Select
-                    value={form.situacao}
-                    onValueChange={(v) =>
-                      setForm((p) => ({ ...p, situacao: v }))
-                    }
-                  >
-                    <SelectTrigger
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-9"
-                      id="emp-situacao"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                      <SelectItem value="Ativo">Ativo</SelectItem>
-                      <SelectItem value="Inativo">Inativo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">
-                    Tipo de Empresa
-                  </Label>
-                  <Select
-                    value={form.tipoEmpresa}
-                    onValueChange={(v) =>
-                      setForm((p) => ({ ...p, tipoEmpresa: v }))
-                    }
-                  >
-                    <SelectTrigger
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-9"
-                      id="emp-tipo"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                      <SelectItem value="Juridica">Jurídica</SelectItem>
-                      <SelectItem value="Fisica">Física</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Razão Social</Label>
-                  <Input
-                    {...field("razaoSocial")}
-                    placeholder="Nome completo / Razão social"
-                    id="emp-razao-social"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">
-                    Nome Fantasia
-                  </Label>
-                  <Input
-                    {...field("nomeFantasia")}
-                    placeholder="Nome Fantasia"
-                    id="emp-nome-fantasia"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">CNPJ / CPF</Label>
-                  <Input
-                    {...field("cnpjCpf")}
-                    placeholder="00.000.000/0001-00"
-                    id="emp-cnpj"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">
-                    Inscrição Estadual / RG
-                  </Label>
-                  <Input
-                    {...field("inscricaoEstadual")}
-                    placeholder="Insc. Estadual"
-                    id="emp-ie"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">E-mail</Label>
-                  <Input
-                    {...field("email")}
-                    type="email"
-                    placeholder="contato@empresa.com"
-                    id="emp-email"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                <div className="col-span-2 space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Endereço</Label>
-                  <Input
-                    {...field("endereco")}
-                    placeholder="Rua / Avenida"
-                    id="emp-endereco"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Número</Label>
-                  <Input
-                    {...field("numero")}
-                    placeholder="123"
-                    id="emp-numero"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Complemento</Label>
-                  <Input
-                    {...field("complemento")}
-                    placeholder="Sala, Andar"
-                    id="emp-complemento"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Bairro</Label>
-                  <Input
-                    {...field("bairro")}
-                    placeholder="Bairro"
-                    id="emp-bairro"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Cidade</Label>
-                  <Input
-                    {...field("cidade")}
-                    placeholder="Cidade"
-                    id="emp-cidade"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Estado</Label>
-                  <Input
-                    {...field("estado")}
-                    placeholder="SP"
-                    maxLength={2}
-                    id="emp-estado"
-                  />
-                </div>
-                <div className="col-span-3 space-y-1.5">
-                  <Label className="text-slate-300 text-xs">Observações</Label>
-                  <Textarea
-                    value={form.observacoes}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, observacoes: e.target.value }))
-                    }
-                    placeholder="Observações adicionais..."
-                    className="bg-slate-900/50 border-slate-700 text-slate-200 resize-none"
-                    rows={2}
-                    id="emp-obs"
-                  />
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Aba 2: Estoques */}
-            <TabsContent value="estoques" className="mt-0 space-y-4">
-              <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-900/30 space-y-3">
-                <h3 className="text-slate-300 text-sm font-semibold">
-                  Cadastrar Estoque
-                </h3>
-                <div className="grid grid-cols-4 md:grid-cols-4 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Código</Label>
-                    <Input
-                      placeholder="EE 01"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="est-codigo-input"
-                      disabled
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">
-                      Código Público
-                    </Label>
-                    <Input
-                      placeholder="PUB-01"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="est-pub-input"
-                      disabled
-                    />
-                  </div>
-                  <div className="space-y-1.5 col-span-1">
-                    <Label className="text-slate-300 text-xs">Descrição</Label>
-                    <Input
-                      placeholder="Estoque Principal"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="est-desc-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Locatário</Label>
-                    <Select>
-                      <SelectTrigger
-                        className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                        id="pos-pessoa-select"
-                      >
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                        {mockPessoas.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.codigo} — {p.nomeFantasia}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="bg-sky-500 hover:bg-sky-400 text-white gap-1"
-                  id="add-estoque-btn"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar
-                </Button>
-              </div>
-              <div className="rounded-lg border border-slate-700/50 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-800/40">
-                    <tr>
-                      {[
-                        "Código",
-                        "Cód. Público",
-                        "Descrição",
-                        "Locatário",
-                        "Situação",
-                        "Ações",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left px-4 py-2.5 text-slate-400 text-xs font-semibold uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockEstoques.map((e) => (
-                      <tr
-                        key={e.id}
-                        className="border-t border-slate-700/30 hover:bg-slate-700/20"
-                      >
-                        <td className="px-4 py-2.5 text-slate-300 font-mono">
-                          {e.codigo}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-300">
-                          {e.codigoPublico}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-300">
-                          {e.descricao}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-400">
-                          {e.locatario || "—"}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <Badge
-                            className={
-                              e.situacao === "Ativo"
-                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs"
-                                : "bg-red-500/20 text-red-400 border-red-500/30 text-xs"
-                            }
-                          >
-                            {e.situacao}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-sky-400"
-                              id={`edit-est-${e.id}`}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-red-400"
-                              id={`del-est-${e.id}`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-
-            {/* Aba 3: Setores */}
-            <TabsContent value="setores" className="mt-0 space-y-4">
-              <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-900/30 space-y-3">
-                <h3 className="text-slate-300 text-sm font-semibold">
-                  Cadastrar Setor
-                </h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Código</Label>
-                    <Input
-                      placeholder="SET-A"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="set-codigo-input"
-                      disabled
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Descrição</Label>
-                    <Input
-                      placeholder="Setor A - Eletrônicos"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="set-desc-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Pessoa</Label>
-                    <Select>
-                      <SelectTrigger
-                        className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                        id="set-pessoa-select"
-                      >
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                        {mockPessoas.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.codigo} — {p.nomeFantasia}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="bg-sky-500 hover:bg-sky-400 text-white gap-1"
-                  id="add-setor-btn"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar
-                </Button>
-              </div>
-              <div className="rounded-lg border border-slate-700/50 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-800/40">
-                    <tr>
-                      {["Código", "Descrição", "Ações"].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left px-4 py-2.5 text-slate-400 text-xs font-semibold uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockSetores.map((s) => (
-                      <tr
-                        key={s.id}
-                        className="border-t border-slate-700/30 hover:bg-slate-700/20"
-                      >
-                        <td className="px-4 py-2.5 text-slate-300 font-mono">
-                          {s.codigo}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-300">
-                          {s.descricao}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-sky-400"
-                              id={`edit-set-${s.id}`}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-red-400"
-                              id={`del-set-${s.id}`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-
-            {/* Aba 4: Posições */}
-            <TabsContent value="posicoes" className="mt-0 space-y-4">
-              <div className="p-4 rounded-lg border border-slate-700/50 bg-slate-900/30 space-y-3">
-                <h3 className="text-slate-300 text-sm font-semibold">
-                  Cadastrar Posição
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Código</Label>
-                    <Input
-                      placeholder="POS-A01"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="pos-codigo-input"
-                      disabled
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Estoque</Label>
-                    <Select>
-                      <SelectTrigger
-                        className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                        id="pos-estoque-select"
-                      >
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                        {mockEstoques.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>
-                            {e.codigo} — {e.descricao}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Setor</Label>
-                    <Select>
-                      <SelectTrigger
-                        className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                        id="pos-setor-select"
-                      >
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                        {mockSetores.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.codigo} — {s.descricao}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Pessoa</Label>
-                    <Select>
-                      <SelectTrigger
-                        className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                        id="pos-pessoa-select"
-                      >
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                        {mockPessoas.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.codigo} — {p.nomeFantasia}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Corredor</Label>
-                    <Input
-                      placeholder="01"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="pos-corredor-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Bloco</Label>
-                    <Input
-                      placeholder="01"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="pos-bloco-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Prateleira</Label>
-                    <Input
-                      placeholder="01"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="pos-prateleira-input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs">Locação</Label>
-                    <Input
-                      placeholder="01"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
-                      id="pos-locacao-input"
-                    />
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  className="bg-sky-500 hover:bg-sky-400 text-white gap-1"
-                  id="add-posicao-btn"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar
-                </Button>
-              </div>
-              <div className="rounded-lg border border-slate-700/50 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-800/40">
-                    <tr>
-                      {[
-                        "Código",
-                        "Estoque",
-                        "Setor",
-                        "Corredor",
-                        "Bloco",
-                        "Prateleira",
-                        "Locação",
-                        "Ações",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="text-left px-4 py-2.5 text-slate-400 text-xs font-semibold uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockPosicoes.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="border-t border-slate-700/30 hover:bg-slate-700/20"
-                      >
-                        <td className="px-4 py-2.5 text-slate-300 font-mono text-xs">
-                          {p.codigo}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-300">
-                          {p.estoqueId}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-300">
-                          {p.setorId}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-400">{p.rua}</td>
-                        <td className="px-4 py-2.5 text-slate-400">
-                          {p.bloco}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-400">
-                          {p.andar}
-                        </td>
-                        <td className="px-4 py-2.5 text-slate-400">
-                          {p.locacao}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-sky-400"
-                              id={`edit-pos-${p.id}`}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-400 hover:text-red-400"
-                              id={`del-pos-${p.id}`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-          </CardContent>
-        </Tabs>
-      </Card>
-    </div>
+    </>
   );
 }

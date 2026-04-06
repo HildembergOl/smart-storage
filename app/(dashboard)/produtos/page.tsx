@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, X, Filter } from "lucide-react";
+import { Plus, Filter, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,181 +13,67 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DataTable, Column } from "@/components/shared/DataTable";
+import { DataTable } from "@/components/shared/DataTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-interface Produto {
-  id: string;
-  codigo: string;
-  descricao: string;
-  unidadeMedida: string;
-  marca: string;
-  categoria: string;
-  tipoControle: string;
-  situacao: string;
-}
-
-const mockProdutos: Produto[] = [
-  {
-    id: "1",
-    codigo: "PRD001",
-    descricao: "Parafuso M8 Inox 50mm",
-    unidadeMedida: "UN",
-    marca: "Tramontina",
-    categoria: "Ferragens",
-    tipoControle: "Padrao",
-    situacao: "Ativo",
-  },
-  {
-    id: "2",
-    codigo: "PRD002",
-    descricao: "Cabo USB-C 2m Premium",
-    unidadeMedida: "UN",
-    marca: "Anker",
-    categoria: "Eletrônicos",
-    tipoControle: "NumeroSerie",
-    situacao: "Ativo",
-  },
-  {
-    id: "3",
-    codigo: "PRD003",
-    descricao: "Luva de Segurança Tátil P",
-    unidadeMedida: "PAR",
-    marca: "3M",
-    categoria: "EPIs",
-    tipoControle: "Padrao",
-    situacao: "Ativo",
-  },
-  {
-    id: "4",
-    codigo: "PRD047",
-    descricao: 'Monitor LED 24" Full HD',
-    unidadeMedida: "UN",
-    marca: "Dell",
-    categoria: "Eletrônicos",
-    tipoControle: "NumeroSerie",
-    situacao: "Ativo",
-  },
-  {
-    id: "5",
-    codigo: "PRD088",
-    descricao: "Filtro de Ar Industrial G4",
-    unidadeMedida: "UN",
-    marca: "Camfil",
-    categoria: "Industrial",
-    tipoControle: "Validade",
-    situacao: "Ativo",
-  },
-  {
-    id: "6",
-    codigo: "PRD113",
-    descricao: "Óleo Lubrificante 5W30 1L",
-    unidadeMedida: "LT",
-    marca: "Mobil",
-    categoria: "Automotivo",
-    tipoControle: "Lote",
-    situacao: "Inativo",
-  },
-];
-
-const tipoControleLabels: Record<string, string> = {
-  Padrao: "Padrão",
-  Lote: "Lote",
-  Validade: "Validade",
-  Grade: "Grade",
-  NumeroSerie: "Nº Série",
-};
+import { Skeleton } from "@/components/ui/skeleton";
+import { getProdutoColumns, Produto } from "./_components/produto-columns";
+import { useApp } from "@/lib/contexts/AppContext";
 
 export default function ProdutosPage() {
   const router = useRouter();
-  const [codigo, setCodigo] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState("todas");
-  const [tipoControle, setTipoControle] = useState("todos");
+  const { enterprisePublicCode, ready } = useApp();
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
 
-  const filtered = mockProdutos.filter((p) => {
-    const matchCod =
-      !codigo || p.codigo.toLowerCase().includes(codigo.toLowerCase());
-    const matchDesc =
-      !descricao || p.descricao.toLowerCase().includes(descricao.toLowerCase());
-    const matchCat = categoria === "todas" || p.categoria === categoria;
-    const matchTipo =
-      tipoControle === "todos" || p.tipoControle === tipoControle;
-    return matchCod && matchDesc && matchCat && matchTipo;
+  const [filters, setFilters] = useState({
+    search: "",
+    controlType: "todos",
+    status: "todos",
   });
 
-  const columns: Column<Produto>[] = [
-    { key: "codigo", label: "Código", sortable: true, className: "font-mono" },
-    { key: "descricao", label: "Descrição", sortable: true },
-    { key: "unidadeMedida", label: "Unidade" },
-    { key: "marca", label: "Marca" },
-    { key: "categoria", label: "Categoria" },
-    {
-      key: "tipoControle",
-      label: "Tipo Controle",
-      render: (v) => (
-        <Badge
-          variant="outline"
-          className="border-slate-600 text-slate-400 text-xs"
-        >
-          {tipoControleLabels[String(v)] || String(v)}
-        </Badge>
-      ),
-    },
-    {
-      key: "situacao",
-      label: "Situação",
-      render: (v) => (
-        <Badge
-          className={
-            v === "Ativo"
-              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-              : "bg-red-500/20 text-red-400 border-red-500/30"
-          }
-        >
-          {String(v)}
-        </Badge>
-      ),
-    },
-    {
-      key: "id",
-      label: "Ações",
-      render: (_, row) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/produtos/${row.id}`);
-            }}
-            id={`edit-produto-${row.id}`}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
-            onClick={(e) => e.stopPropagation()}
-            id={`delete-produto-${row.id}`}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const fetchProdutos = useCallback(async () => {
+    if (!ready || !enterprisePublicCode) return;
+    setLoading(true);
+    setSearched(true);
+    try {
+      const params = new URLSearchParams({ 
+        enterpriseId: enterprisePublicCode,
+        ...(filters.search && { search: filters.search }),
+        ...(filters.controlType !== "todos" && { controlType: filters.controlType }),
+        ...(filters.status !== "todos" && { status: filters.status }),
+      });
+
+      const res = await fetch(`/api/produtos?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProdutos(data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, enterprisePublicCode, ready]);
+
+  useEffect(() => {
+    if (ready && enterprisePublicCode) {
+      fetchProdutos();
+    }
+  }, [ready, enterprisePublicCode, fetchProdutos]);
+
+  const handleClear = () => {
+    setFilters({ search: "", controlType: "todos", status: "todos" });
+    setProdutos([]);
+    setSearched(false);
+  };
+
+  const columns = getProdutoColumns(fetchProdutos);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Produtos</h1>
-          <p className="text-slate-400 text-sm">
-            Gerencie o catálogo de produtos
-          </p>
+          <p className="text-slate-400 text-sm">Gerencie o catálogo de produtos e serviços</p>
         </div>
         <Button
           onClick={() => router.push("/produtos/novo")}
@@ -207,53 +93,22 @@ export default function ProdutosPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-[120px] space-y-1">
-              <label className="text-xs text-slate-400">Código</label>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div className="md:col-span-4 space-y-2">
+              <Label>Descrição / Marca</Label>
               <Input
-                placeholder="PRD001"
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
+                placeholder="Descrição ou marca..."
+                value={filters.search}
+                onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && fetchProdutos()}
                 className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                id="filter-prod-codigo"
+                id="filter-prod-search"
               />
             </div>
-            <div className="flex-1 min-w-[200px] space-y-1">
-              <label className="text-xs text-slate-400">Descrição</label>
-              <Input
-                placeholder="Nome do produto..."
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                id="filter-prod-descricao"
-              />
-            </div>
-            <div className="min-w-[150px] space-y-1">
-              <label className="text-xs text-slate-400">Categoria</label>
-              <Select value={categoria} onValueChange={setCategoria}>
-                <SelectTrigger
-                  className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                  id="filter-prod-categoria"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                  <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="Eletrônicos">Eletrônicos</SelectItem>
-                  <SelectItem value="Ferragens">Ferragens</SelectItem>
-                  <SelectItem value="EPIs">EPIs</SelectItem>
-                  <SelectItem value="Industrial">Industrial</SelectItem>
-                  <SelectItem value="Automotivo">Automotivo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="min-w-[150px] space-y-1">
-              <label className="text-xs text-slate-400">Tipo Controle</label>
-              <Select value={tipoControle} onValueChange={setTipoControle}>
-                <SelectTrigger
-                  className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                  id="filter-prod-tipo"
-                >
+            <div className="md:col-span-3 space-y-2">
+              <Label>Tipo de controle</Label>
+              <Select value={filters.controlType} onValueChange={(v) => setFilters((f) => ({ ...f, controlType: v }))}>
+                <SelectTrigger className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm" id="filter-prod-tipo">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
@@ -266,34 +121,55 @@ export default function ProdutosPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCodigo("");
-                setDescricao("");
-                setCategoria("todas");
-                setTipoControle("todos");
-              }}
-              className="text-slate-400 hover:text-slate-200 gap-1 h-9"
-              id="clear-prod-filters-btn"
-            >
-              <X className="w-3.5 h-3.5" />
-              Limpar
-            </Button>
+            <div className="md:col-span-2 space-y-2">
+              <Label>Situação</Label>
+              <Select value={filters.status} onValueChange={(v) => setFilters((f) => ({ ...f, status: v }))}>
+                <SelectTrigger className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm" id="filter-prod-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                  <SelectItem value="todos">Todas</SelectItem>
+                  <SelectItem value="Ativo">Ativo</SelectItem>
+                  <SelectItem value="Inativo">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-3 flex gap-2">
+              <Button
+                onClick={fetchProdutos}
+                disabled={loading}
+                className="flex-1 bg-sky-500 hover:bg-sky-400 text-white h-9 gap-2"
+                id="filter-prod-btn"
+              >
+                <Search className="w-3.5 h-3.5" />
+                Filtrar
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleClear} className="text-slate-400 hover:text-slate-200 gap-1 h-9" id="clear-prod-filters-btn">
+                <X className="w-3.5 h-3.5" />
+                Limpar
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       <Card className="bg-slate-800/40 border-slate-700/50">
         <CardContent className="pt-4">
-          <DataTable<Produto>
-            data={filtered}
-            columns={columns}
-            onRowClick={(row) => router.push(`/produtos/${row.id}`)}
-            emptyMessage="Nenhum produto encontrado."
-            searchable={false}
-          />
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 bg-slate-700/40 rounded" />
+              ))}
+            </div>
+          ) : (
+            <DataTable<Produto>
+              data={produtos}
+              columns={columns}
+              onRowClick={(row) => router.push(`/produtos/${row.publicCode}`)}
+              emptyMessage={searched ? "Nenhum produto encontrado." : "Use os filtros acima para buscar produtos."}
+              searchable={false}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

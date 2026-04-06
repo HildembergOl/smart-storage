@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Save } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -18,207 +20,348 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useBreadcrumb } from "@/lib/contexts/BreadcrumbContext";
+import { useApp } from "@/lib/contexts/AppContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
+
+interface PersonForm {
+  publicCode: string;
+  id: string;
+  personType: string;
+  legalName: string;
+  tradeName: string;
+  taxId: string;
+  stateRegistration: string;
+  email: string;
+  address: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  notes: string;
+  isClient: boolean;
+  isSupplier: boolean;
+  isEmployee: boolean;
+  isTenant: boolean;
+  isVehicle: boolean;
+  enterpriseId: string;
+}
+
+const emptyForm: PersonForm = {
+  publicCode: "",
+  id: "",
+  personType: "Juridica",
+  legalName: "",
+  tradeName: "",
+  taxId: "",
+  stateRegistration: "",
+  email: "",
+  address: "",
+  number: "",
+  complement: "",
+  neighborhood: "",
+  city: "",
+  state: "",
+  notes: "",
+  isClient: false,
+  isSupplier: false,
+  isEmployee: false,
+  isTenant: false,
+  isVehicle: false,
+  enterpriseId: "",
+};
+
+const CATEGORIES = [
+  { key: "isClient" as const, label: "Cliente" },
+  { key: "isSupplier" as const, label: "Fornecedor" },
+  { key: "isEmployee" as const, label: "Funcionário" },
+  { key: "isTenant" as const, label: "Locatário" },
+  { key: "isVehicle" as const, label: "Veículo" },
+];
 
 export default function PessoaFormPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [form, setForm] = useState({
-    codigo: "PES001",
-    tipoPessoa: "Juridica",
-    razaoSocial: "Fornecedor ABC LTDA",
-    nomeFantasia: "Fornecedor ABC",
-    cnpjCpf: "12.345.678/0001-90",
-    inscricaoEstadual: "",
-    email: "contato@fornecedorabc.com",
-    endereco: "Av. Industrial",
-    numero: "500",
-    complemento: "Galpão 3",
-    bairro: "Distrito Industrial",
-    cidade: "São Paulo",
-    estado: "SP",
-    observacoes: "",
-    isCliente: false,
-    isFornecedor: true,
-    isFuncionario: false,
-    isLocatario: false,
-    isVeiculo: false,
-  });
+  const { setLabel } = useBreadcrumb();
+  const { enterpriseId: activeEnterpriseId } = useApp();
+  const isNew = id === "novo";
 
-  const field = (name: string) => ({
-    value: (form as Record<string, unknown>)[name] as string,
+  const [loading, setLoading] = useState(!isNew);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<PersonForm>(emptyForm);
+
+  const fetchPessoa = useCallback(async () => {
+    if (isNew) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/pessoas/${id}`);
+      if (!res.ok) { toast.error("Pessoa não encontrada"); router.push("/pessoas"); return; }
+      const data = await res.json();
+      setForm({
+        publicCode: data.publicCode || "",
+        id: data.id || "",
+        personType: data.personType || "Juridica",
+        legalName: data.legalName || "",
+        tradeName: data.tradeName || "",
+        taxId: data.taxId || "",
+        stateRegistration: data.stateRegistration || "",
+        email: data.email || "",
+        address: data.address || "",
+        number: data.number || "",
+        complement: data.complement || "",
+        neighborhood: data.neighborhood || "",
+        city: data.city || "",
+        state: data.state || "",
+        notes: data.notes || "",
+        isClient: !!data.isClient,
+        isSupplier: !!data.isSupplier,
+        isEmployee: !!data.isEmployee,
+        isTenant: !!data.isTenant,
+        isVehicle: !!data.isVehicle,
+        enterpriseId: data.enterpriseId || "",
+      });
+      if (data.legalName) setLabel(id, data.legalName);
+    } catch { toast.error("Erro ao carregar pessoa"); router.push("/pessoas"); }
+    finally { setLoading(false); }
+  }, [id, isNew, router, setLabel]);
+
+  useEffect(() => { fetchPessoa(); }, [fetchPessoa]);
+
+  const field = (name: keyof PersonForm) => ({
+    value: (form[name] as string) || "",
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setForm((prev) => ({ ...prev, [name]: e.target.value })),
-    className:
-      "bg-slate-900/50 border-slate-700 text-slate-200 placeholder:text-slate-500 text-sm h-9",
+      setForm((p) => ({ ...p, [name]: e.target.value })),
+    className: "bg-slate-900/50 border-slate-700 text-slate-200 placeholder:text-slate-500 h-9 text-sm",
   });
 
-  const checkField = (name: keyof typeof form) => ({
-    checked: form[name] as boolean,
-    onCheckedChange: (v: boolean) =>
-      setForm((prev) => ({ ...prev, [name]: v })),
-  });
-
-  const handleSave = () => {
-    toast.success("Pessoa salva com sucesso!");
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.legalName || !form.taxId) {
+      toast.error("Razão social e CNPJ/CPF são obrigatórios");
+      return;
+    }
+    setSaving(true);
+    try {
+      const url = isNew ? "/api/pessoas" : `/api/pessoas/${id}`;
+      const method = isNew ? "POST" : "PATCH";
+      const body = isNew ? { ...form, enterpriseId: activeEnterpriseId } : form;
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Erro ao salvar pessoa");
+        return;
+      }
+      const saved = await res.json();
+      toast.success(isNew ? "Pessoa criada com sucesso!" : "Alterações salvas!");
+      if (isNew) router.push(`/pessoas/${saved.publicCode}`);
+      else fetchPessoa();
+    } catch { toast.error("Erro ao conectar com o servidor"); }
+    finally { setSaving(false); }
   };
 
+  const handleDelete = async () => {
+    try {
+      const res = await fetch(`/api/pessoas/${id}`, { method: "DELETE" });
+      if (res.ok) { toast.success("Pessoa excluída!"); router.push("/pessoas"); }
+      else toast.error("Erro ao excluir pessoa.");
+    } catch { toast.error("Erro de conexão."); }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20 min-h-[400px]">
+      <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="text-slate-400 hover:text-slate-200"
-            id="back-btn"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-white">Editar Pessoa</h1>
-            <p className="text-slate-400 text-sm">Código: {form.codigo}</p>
+    <>
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="ghost" size="icon" onClick={() => router.push("/pessoas")} className="text-slate-400 hover:text-white">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                {isNew ? "Nova Pessoa" : form.legalName}
+              </h1>
+              {!isNew && (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Badge variant="outline" className="text-[10px] font-mono border-slate-700 text-slate-400">
+                    Código: {form.id}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {!isNew && (
+              <AlertDialog>
+                <AlertDialogTrigger render={<Button variant="ghost" size="icon" className="text-slate-400 hover:text-red-400 hover:bg-red-500/10" />}>
+                  <Trash2 className="w-4 h-4" />
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-slate-800 border-slate-700">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-white">Excluir Pessoa</AlertDialogTitle>
+                    <AlertDialogDescription className="text-slate-400">
+                      Tem certeza que deseja excluir <strong className="text-slate-200">{form.legalName}</strong>?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="border-slate-600 text-slate-300 hover:bg-slate-700">Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600 text-white">Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button type="submit" form="pessoa-form" disabled={saving} className="bg-sky-500 hover:bg-sky-400 text-white gap-2 min-w-[140px]">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {isNew ? "Criar Pessoa" : "Salvar Alterações"}
+            </Button>
           </div>
         </div>
-        <Button
-          onClick={handleSave}
-          className="bg-sky-500 hover:bg-sky-400 text-white gap-2"
-          id="save-pessoa-btn"
-        >
-          <Save className="w-4 h-4" />
-          Salvar
-        </Button>
+
+        <Card className="bg-slate-800/40 border-slate-700/50 overflow-hidden">
+          <Tabs defaultValue="cadastro">
+            <CardHeader className="pb-0 border-b border-slate-700/50">
+              <TabsList className="bg-transparent border-none gap-6 p-0 h-10">
+                <TabsTrigger value="cadastro" className="data-[state=active]:border-b-2 data-[state=active]:border-sky-500 data-[state=active]:text-sky-400 rounded-none bg-transparent px-2 h-8 text-sm text-slate-400 transition-all">
+                  Cadastro
+                </TabsTrigger>
+              </TabsList>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <TabsContent value="cadastro" className="mt-0">
+                <form id="pessoa-form" onSubmit={handleSave} className="space-y-5">
+                  {/* Tipo + Status */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo de pessoa</Label>
+                      <Select value={form.personType} onValueChange={(v) => setForm((p) => ({ ...p, personType: v }))}>
+                        <SelectTrigger className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
+                          <SelectItem value="Juridica">Jurídica</SelectItem>
+                          <SelectItem value="Fisica">Física</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Razão Social + Nome Fantasia */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Razão social</Label>
+                      <Input {...field("legalName")} placeholder="Razão social ou nome completo" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nome fantasia</Label>
+                      <Input {...field("tradeName")} placeholder="Nome fantasia (opcional)" />
+                    </div>
+                  </div>
+
+                  {/* CNPJ/CPF + IE/RG + E-mail */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>CNPJ/CPF</Label>
+                      <Input {...field("taxId")} placeholder="00.000.000/0001-00" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Inscrição estadual / RG</Label>
+                      <Input {...field("stateRegistration")} placeholder="Opcional" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>E-mail</Label>
+                      <Input {...field("email")} type="email" placeholder="email@empresa.com" />
+                    </div>
+                  </div>
+
+                  {/* Endereço */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="md:col-span-5 space-y-2">
+                      <Label>Endereço</Label>
+                      <Input {...field("address")} placeholder="Rua, Avenida..." />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label>Número</Label>
+                      <Input {...field("number")} placeholder="Nº" />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label>Complemento</Label>
+                      <Input {...field("complement")} placeholder="Sala, Apto..." />
+                    </div>
+                    <div className="md:col-span-3 space-y-2">
+                      <Label>Bairro</Label>
+                      <Input {...field("neighborhood")} placeholder="Bairro" />
+                    </div>
+                  </div>
+
+                  {/* Cidade + Estado + Observações */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="md:col-span-4 space-y-2">
+                      <Label>Cidade</Label>
+                      <Input {...field("city")} placeholder="Cidade" />
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                      <Label>UF</Label>
+                      <Input {...field("state")} placeholder="SP" maxLength={2} />
+                    </div>
+                    <div className="md:col-span-6 space-y-2">
+                      <Label>Observações</Label>
+                      <Textarea
+                        value={form.notes}
+                        onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                        className="bg-slate-900/50 border-slate-700 text-slate-200 resize-none text-sm"
+                        rows={2}
+                        placeholder="Observações gerais..."
+                      />
+                    </div>
+                  </div>
+
+                  <Separator className="bg-slate-700/50" />
+
+                  {/* Categorias */}
+                  <div className="space-y-3">
+                    <p className="text-slate-300 text-sm font-semibold">Categorias</p>
+                    <div className="flex flex-wrap gap-6">
+                      {CATEGORIES.map(({ key, label }) => (
+                        <div key={key} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`cat-${key}`}
+                            checked={form[key]}
+                            onCheckedChange={(v) => setForm((p) => ({ ...p, [key]: !!v }))}
+                            className="border-slate-600 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                          />
+                          <Label htmlFor={`cat-${key}`} className="text-slate-300 cursor-pointer">
+                            {label}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </form>
+              </TabsContent>
+            </CardContent>
+          </Tabs>
+        </Card>
       </div>
-
-      <Card className="bg-slate-800/40 border-slate-700/50">
-        <CardContent className="pt-6 space-y-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Código</Label>
-              <Input
-                {...field("codigo")}
-                placeholder="PES001"
-                id="pes-codigo"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Tipo de Pessoa</Label>
-              <Select
-                value={form.tipoPessoa}
-                onValueChange={(v) => setForm((p) => ({ ...p, tipoPessoa: v }))}
-              >
-                <SelectTrigger
-                  className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                  id="pes-tipo"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
-                  <SelectItem value="Juridica">Jurídica</SelectItem>
-                  <SelectItem value="Fisica">Física</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Razão Social</Label>
-              <Input {...field("razaoSocial")} id="pes-razao" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Nome Fantasia</Label>
-              <Input {...field("nomeFantasia")} id="pes-fantasia" />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">CNPJ / CPF</Label>
-              <Input {...field("cnpjCpf")} id="pes-cnpj" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">
-                Inscrição Estadual / RG
-              </Label>
-              <Input {...field("inscricaoEstadual")} id="pes-ie" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">E-mail</Label>
-              <Input {...field("email")} type="email" id="pes-email" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-            <div className="col-span-2 space-y-1.5">
-              <Label className="text-slate-300 text-xs">Endereço</Label>
-              <Input {...field("endereco")} id="pes-endereco" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Número</Label>
-              <Input {...field("numero")} id="pes-numero" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Complemento</Label>
-              <Input {...field("complemento")} id="pes-compl" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Bairro</Label>
-              <Input {...field("bairro")} id="pes-bairro" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Cidade</Label>
-              <Input {...field("cidade")} id="pes-cidade" />
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-slate-300 text-xs">Estado</Label>
-              <Input {...field("estado")} maxLength={2} id="pes-estado" />
-            </div>
-            <div className="col-span-3 space-y-1.5">
-              <Label className="text-slate-300 text-xs">Observações</Label>
-              <Textarea
-                value={form.observacoes}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, observacoes: e.target.value }))
-                }
-                className="bg-slate-900/50 border-slate-700 text-slate-200 resize-none"
-                rows={2}
-                id="pes-obs"
-              />
-            </div>
-          </div>
-
-          <Separator className="bg-slate-700/50" />
-
-          {/* Categories */}
-          <div>
-            <CardTitle className="text-slate-300 text-sm mb-4">
-              Categorias
-            </CardTitle>
-            <div className="flex flex-wrap gap-6">
-              {[
-                { id: "isCliente", label: "Cliente" },
-                { id: "isFornecedor", label: "Fornecedor" },
-                { id: "isFuncionario", label: "Funcionário" },
-                { id: "isLocatario", label: "Locatário" },
-                { id: "isVeiculo", label: "Veículos" },
-              ].map(({ id, label }) => (
-                <div key={id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`pes-cat-${id}`}
-                    {...checkField(id as keyof typeof form)}
-                    className="border-slate-600 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
-                  />
-                  <Label
-                    htmlFor={`pes-cat-${id}`}
-                    className="text-slate-300 text-sm cursor-pointer"
-                  >
-                    {label}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </>
   );
 }

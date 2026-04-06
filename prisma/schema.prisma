@@ -6,305 +6,375 @@ datasource db {
   provider = "postgresql"
 }
 
-model Empresa {
-  id                String   @id @default(cuid())
-  codigo            String   @unique
-  codigoPublico     String   @unique
-  situacao          String   @default("Ativo")
-  tipoEmpresa       String // "Fisica" | "Juridica"
-  razaoSocial       String
-  nomeFantasia      String?
-  cnpjCpf           String   @unique
-  inscricaoEstadual String?
-  endereco          String?
-  numero            String?
-  complemento       String?
-  bairro            String?
-  cidade            String?
-  estado            String?
-  observacoes       String?
+model Enterprise {
+  id                BigInt   @id @default(autoincrement())
+  publicCode        String   @unique @default(cuid())
+  status            String   @default("Ativo")
+  enterpriseType    String // "Fisica" | "Juridica"
+  legalName         String
+  tradeName         String?
+  taxId             String   @unique
+  stateRegistration String?
+  address           String?
+  number            String?
+  complement        String?
+  neighborhood      String?
+  city              String?
+  state             String?
+  notes             String?
   email             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  estoques      Estoque[]
-  setores       Setor[]
-  posicoes      Posicao[]
-  produtos      Produto[]
-  pessoas       Pessoa[]
-  entradas      Entrada[]
-  saidas        Saida[]
-  contasPagar   ContaPagar[]
-  contasReceber ContaReceber[]
+  stocks           Stock[]
+  sections         Section[]
+  positions        Position[]
+  products         Product[]
+  people           Person[]
+  entries          Entry[]
+  orders           Order[]
+  payments         Payment[]
+  receipts         Receipt[]
+  userEnterprises  UserEnterprise[]
+  invites          UserInvite[]
 }
 
-model Estoque {
-  id            String  @id @default(cuid())
-  codigo        String
-  codigoPublico String
-  descricao     String
-  situacao      String  @default("Ativo")
-  empresaId     String
-  locatarioId   String?
+model Stock {
+  id           BigInt @id @default(autoincrement())
+  publicCode   String @unique @default(cuid())
+  description  String
+  status       String @default("Ativo")
+  enterpriseId BigInt
+  tenantId     BigInt?
 
-  empresa         Empresa          @relation(fields: [empresaId], references: [id])
-  locatario       Pessoa?          @relation(fields: [locatarioId], references: [id])
-  posicoes        Posicao[]
-  produtoEstoques ProdutoEstoque[]
-  entradas        Entrada[]
-  saidas          Saida[]
+  enterprise    Enterprise     @relation(fields: [enterpriseId], references: [id])
+  tenant        Person?        @relation(fields: [tenantId], references: [id])
+  positions     Position[]
+  productStocks ProductStock[]
+  entries       Entry[]
+  orders        Order[]
 }
 
-model Setor {
-  id        String @id @default(cuid())
-  codigo    String
-  descricao String
-  empresaId String
+model Section {
+  id           BigInt @id @default(autoincrement())
+  publicCode   String @unique @default(cuid())
+  description  String
+  enterpriseId BigInt
 
-  empresa  Empresa   @relation(fields: [empresaId], references: [id])
-  posicoes Posicao[]
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  positions  Position[]
 }
 
-model Posicao {
-  id        String  @id @default(cuid())
-  codigo    String
-  estoqueId String
-  setorId   String
-  rua       String?
-  bloco     String?
-  andar     String?
-  locacao   String?
-  empresaId String
+model Position {
+  id           BigInt  @id @default(autoincrement())
+  publicCode   String? @unique @default(cuid())
+  stockId      BigInt
+  sectionId    BigInt
+  aisle        String?
+  block        String?
+  floor        String?
+  location     String?
+  enterpriseId BigInt
 
-  empresa         Empresa          @relation(fields: [empresaId], references: [id])
-  estoque         Estoque          @relation(fields: [estoqueId], references: [id])
-  setor           Setor            @relation(fields: [setorId], references: [id])
-  produtoPosicoes ProdutoPosicao[]
+  enterprise       Enterprise        @relation(fields: [enterpriseId], references: [id])
+  stock            Stock             @relation(fields: [stockId], references: [id])
+  section          Section           @relation(fields: [sectionId], references: [id])
+  productPositions ProductPosition[]
 }
 
-model Produto {
-  id            String  @id @default(cuid())
-  codigo        String
-  descricao     String
-  unidadeMedida String
-  marca         String?
-  categoria     String?
-  grupo         String?
-  subgrupo      String?
-  tipoProduto   String // "Produto" | "Servico"
-  tipoControle  String // "Padrao" | "Lote" | "Validade" | "Grade" | "NumeroSerie"
-  imagemCapa    String?
-  situacao      String  @default("Ativo")
-  empresaId     String
+model Product {
+  id            BigInt @id @default(autoincrement())
+  publicCode    String @unique @default(cuid())
+  description   String
+  
+  unitOfMeasureId BigInt?
+  brandId         BigInt?
+  categoryId      BigInt?
+  groupId         BigInt?
+  subgroupId      BigInt?
 
-  empresa            Empresa             @relation(fields: [empresaId], references: [id])
-  embalagens         Embalagem[]
-  produtoEstoques    ProdutoEstoque[]
-  produtoPosicoes    ProdutoPosicao[]
-  itensEntrada       ItemEntrada[]
-  itensSaida         ItemSaida[]
-  imagensMarketplace ImagemMarketplace[]
+  productType   String // "Produto" | "Servico"
+  controlType   String // "Padrao" | "Lote" | "Validade" | "Grade" | "NumeroSerie"
+  coverImage    String?
+  status        String @default("Ativo")
+  enterpriseId  BigInt
+
+  enterprise        Enterprise         @relation(fields: [enterpriseId], references: [id])
+  unitOfMeasure     ProductAttribute?  @relation("ProductUnit", fields: [unitOfMeasureId], references: [id])
+  brand             ProductAttribute?  @relation("ProductBrand", fields: [brandId], references: [id])
+  category          ProductAttribute?  @relation("ProductCategory", fields: [categoryId], references: [id])
+  group             ProductAttribute?  @relation("ProductGroup", fields: [groupId], references: [id])
+  subgroup          ProductAttribute?  @relation("ProductSubgroup", fields: [subgroupId], references: [id])
+  
+  packages          Package[]
+  productStocks     ProductStock[]
+  productPositions  ProductPosition[]
+  entryItems        EntryItem[]
+  orderItems        OrderItem[]
+  marketplaceImages MarketplaceImage[]
 }
 
-model Embalagem {
-  id            String  @id @default(cuid())
-  codigo        String
-  situacao      String  @default("Ativo")
-  unidadeMedida String
-  codigoBarras  String?
-  fator         Float   @default(1)
-  altura        Float?
-  largura       Float?
-  comprimento   Float?
-  cubagem       Float?
-  pesoBruto     Float?
-  pesoLiquido   Float?
-  produtoId     String
+model Package {
+  id              BigInt  @id @default(autoincrement())
+  status          String  @default("Ativo")
+  unitOfMeasureId BigInt?
+  barcode         String?
+  factor          Float   @default(1)
+  height          Float?
+  width           Float?
+  length          Float?
+  cubage          Float?
+  grossWeight     Float?
+  netWeight       Float?
+  productId       BigInt
 
-  produto Produto @relation(fields: [produtoId], references: [id])
+  product       Product           @relation(fields: [productId], references: [id])
+  unitOfMeasure ProductAttribute? @relation("PackageUnit", fields: [unitOfMeasureId], references: [id])
 }
 
-model ProdutoEstoque {
-  id         String  @id @default(cuid())
-  produtoId  String
-  estoqueId  String
-  precoCusto Float   @default(0)
-  ativo      Boolean @default(true)
-  quantidade Float   @default(0)
+model ProductStock {
+  id        BigInt  @id @default(autoincrement())
+  productId BigInt
+  stockId   BigInt
+  costPrice Float   @default(0)
+  active    Boolean @default(true)
+  quantity  Float   @default(0)
 
-  produto Produto @relation(fields: [produtoId], references: [id])
-  estoque Estoque @relation(fields: [estoqueId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  stock   Stock   @relation(fields: [stockId], references: [id])
 }
 
-model ProdutoPosicao {
-  id          String    @id @default(cuid())
-  produtoId   String
-  posicaoId   String
-  quantidade  Float     @default(0)
-  lote        String?
-  validade    DateTime?
-  grade       String?
-  numeroSerie String?
+model ProductPosition {
+  id           BigInt    @id @default(autoincrement())
+  productId    BigInt
+  positionId   BigInt
+  quantity     Float     @default(0)
+  batch        String?
+  expiry       DateTime?
+  grid         String?
+  serialNumber String?
 
-  produto Produto @relation(fields: [produtoId], references: [id])
-  posicao Posicao @relation(fields: [posicaoId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+  position Position @relation(fields: [positionId], references: [id])
 }
 
-model ImagemMarketplace {
-  id        String  @id @default(cuid())
-  produtoId String
+model MarketplaceImage {
+  id        BigInt @id @default(autoincrement())
+  productId BigInt
   url       String
-  estoqueId String?
+  stockId   BigInt?
 
-  produto Produto @relation(fields: [produtoId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 }
 
-model Pessoa {
-  id                String  @id @default(cuid())
-  codigo            String
-  tipoPessoa        String // "Fisica" | "Juridica"
-  razaoSocial       String
-  nomeFantasia      String?
-  cnpjCpf           String
-  inscricaoEstadual String?
-  endereco          String?
-  numero            String?
-  complemento       String?
-  bairro            String?
-  cidade            String?
-  estado            String?
-  observacoes       String?
+model Person {
+  id                BigInt  @id @default(autoincrement())
+  publicCode        String? @unique @default(cuid())
+  personType        String // "Fisica" | "Juridica"
+  legalName         String
+  tradeName         String?
+  taxId             String
+  stateRegistration String?
+  address           String?
+  number            String?
+  complement        String?
+  neighborhood      String?
+  city              String?
+  state             String?
+  notes             String?
   email             String?
-  isCliente         Boolean @default(false)
-  isFornecedor      Boolean @default(false)
-  isFuncionario     Boolean @default(false)
-  isLocatario       Boolean @default(false)
-  isVeiculo         Boolean @default(false)
-  empresaId         String
+  isClient          Boolean @default(false)
+  isSupplier        Boolean @default(false)
+  isEmployee        Boolean @default(false)
+  isTenant          Boolean @default(false)
+  isVehicle         Boolean @default(false)
+  enterpriseId      BigInt
 
-  empresa       Empresa        @relation(fields: [empresaId], references: [id])
-  estoques      Estoque[]
-  entradas      Entrada[]
-  saidas        Saida[]
-  contasPagar   ContaPagar[]
-  contasReceber ContaReceber[]
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  stocks     Stock[]
+  entries    Entry[]
+  orders     Order[]
+  payments   Payment[]
+  receipts   Receipt[]
+  tenants    UserTenant[]
 }
 
-model Entrada {
-  id           String   @id @default(cuid())
-  codigo       String
-  estoqueId    String
-  pessoaId     String
-  numero       String
-  tipo         String // "NF-e" | "CF-e" | "Manual"
-  chaveNfe     String?
-  totalProduto Float    @default(0)
+model Entry {
+  id           BigInt   @id @default(autoincrement())
+  publicCode   String?  @unique @default(cuid())
+  stockId      BigInt
+  personId     BigInt
+  number       String
+  type         String // "NF-e" | "CF-e" | "Manual"
+  nfeKey       String?
+  totalProduct Float    @default(0)
   totalNfe     Float    @default(0)
-  observacoes  String?
-  empresaId    String
+  notes        String?
+  enterpriseId BigInt
   createdAt    DateTime @default(now())
 
-  empresa Empresa         @relation(fields: [empresaId], references: [id])
-  estoque Estoque         @relation(fields: [estoqueId], references: [id])
-  pessoa  Pessoa          @relation(fields: [pessoaId], references: [id])
-  itens   ItemEntrada[]
-  faturas FaturaEntrada[]
-  anexos  AnexoEntrada[]
+  enterprise  Enterprise        @relation(fields: [enterpriseId], references: [id])
+  stock       Stock             @relation(fields: [stockId], references: [id])
+  person      Person            @relation(fields: [personId], references: [id])
+  items       EntryItem[]
+  invoices    EntryInvoice[]
+  attachments EntryAttachment[]
 }
 
-model ItemEntrada {
-  id         String @id @default(cuid())
-  entradaId  String
-  produtoId  String
-  quantidade Float
-  valorUnit  Float
+model EntryItem {
+  id        BigInt @id @default(autoincrement())
+  entryId   BigInt
+  productId BigInt
+  quantity  Float
+  unitValue Float
 
-  entrada Entrada @relation(fields: [entradaId], references: [id])
-  produto Produto @relation(fields: [produtoId], references: [id])
+  entry   Entry   @relation(fields: [entryId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 }
 
-model FaturaEntrada {
-  id             String   @id @default(cuid())
-  entradaId      String
-  codigo         String
-  formaPagamento String
-  numero         String
-  vencimento     DateTime
-  valor          Float
+model EntryInvoice {
+  id            BigInt   @id @default(autoincrement())
+  entryId       BigInt
+  paymentMethod String
+  number        String
+  dueDate       DateTime
+  value         Float
 
-  entrada Entrada @relation(fields: [entradaId], references: [id])
+  entry Entry @relation(fields: [entryId], references: [id])
 }
 
-model AnexoEntrada {
-  id        String  @id @default(cuid())
-  entradaId String
-  url       String
-  descricao String?
+model EntryAttachment {
+  id          BigInt  @id @default(autoincrement())
+  entryId     BigInt
+  url         String
+  description String?
 
-  entrada Entrada @relation(fields: [entradaId], references: [id])
+  entry Entry @relation(fields: [entryId], references: [id])
 }
 
-model Saida {
-  id           String   @id @default(cuid())
-  codigo       String
-  estoqueId    String
-  pessoaId     String
-  numero       String
-  tipo         String
-  chaveNfe     String?
-  totalProduto Float    @default(0)
+model Order {
+  id           BigInt   @id @default(autoincrement())
+  publicCode   String?  @unique @default(cuid())
+  stockId      BigInt
+  personId     BigInt
+  number       String
+  type         String
+  nfeKey       String?
+  totalProduct Float    @default(0)
   totalNfe     Float    @default(0)
-  observacoes  String?
-  empresaId    String
+  notes        String?
+  enterpriseId BigInt
   createdAt    DateTime @default(now())
 
-  empresa Empresa     @relation(fields: [empresaId], references: [id])
-  estoque Estoque     @relation(fields: [estoqueId], references: [id])
-  pessoa  Pessoa      @relation(fields: [pessoaId], references: [id])
-  itens   ItemSaida[]
+  enterprise Enterprise  @relation(fields: [enterpriseId], references: [id])
+  stock      Stock       @relation(fields: [stockId], references: [id])
+  person     Person      @relation(fields: [personId], references: [id])
+  items      OrderItem[]
 }
 
-model ItemSaida {
-  id         String @id @default(cuid())
-  saidaId    String
-  produtoId  String
-  quantidade Float
-  valorUnit  Float
+model OrderItem {
+  id        BigInt @id @default(autoincrement())
+  orderId   BigInt
+  productId BigInt
+  quantity  Float
+  unitValue Float
 
-  saida   Saida   @relation(fields: [saidaId], references: [id])
-  produto Produto @relation(fields: [produtoId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 }
 
-model ContaPagar {
-  id             String   @id @default(cuid())
-  codigo         String
-  numero         String
-  pessoaId       String
-  vencimento     DateTime
-  formaPagamento String
-  valor          Float
-  saldo          Float
-  situacao       String   @default("EmAberto") // "EmAberto" | "Pago" | "Vencido"
-  empresaId      String
-  createdAt      DateTime @default(now())
+model Payment {
+  id            BigInt   @id @default(autoincrement())
+  number        String
+  personId      BigInt
+  dueDate       DateTime
+  paymentMethod String
+  value         Float
+  balance       Float
+  status        String   @default("EmAberto") // "EmAberto" | "Pago" | "Vencido"
+  enterpriseId  BigInt
+  createdAt     DateTime @default(now())
 
-  empresa Empresa @relation(fields: [empresaId], references: [id])
-  pessoa  Pessoa  @relation(fields: [pessoaId], references: [id])
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  person     Person     @relation(fields: [personId], references: [id])
 }
 
-model ContaReceber {
-  id             String   @id @default(cuid())
-  codigo         String
-  numero         String
-  pessoaId       String
-  vencimento     DateTime
-  formaPagamento String
-  valor          Float
-  saldo          Float
-  situacao       String   @default("EmAberto") // "EmAberto" | "Recebido" | "Vencido"
-  empresaId      String
-  createdAt      DateTime @default(now())
+model Receipt {
+  id            BigInt   @id @default(autoincrement())
+  number        String
+  personId      BigInt
+  dueDate       DateTime
+  paymentMethod String
+  value         Float
+  balance       Float
+  status        String   @default("EmAberto") // "EmAberto" | "Recebido" | "Vencido"
+  enterpriseId  BigInt
+  createdAt     DateTime @default(now())
 
-  empresa Empresa @relation(fields: [empresaId], references: [id])
-  pessoa  Pessoa  @relation(fields: [pessoaId], references: [id])
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  person     Person     @relation(fields: [personId], references: [id])
+}
+
+model User {
+  id        BigInt  @id @default(autoincrement())
+  email     String  @unique
+  publicKey String  @unique
+  name      String?
+  phone     String?
+  jobTitle  String?
+  avatarUrl String?
+
+  enterprises UserEnterprise[]
+  tenant      UserTenant?
+  invites     UserInvite[]
+}
+
+model UserEnterprise {
+  id           BigInt @id @default(autoincrement())
+  userId       BigInt
+  enterpriseId BigInt
+
+  user       User       @relation(fields: [userId], references: [id])
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+
+  @@unique([userId, enterpriseId])
+}
+
+model UserTenant {
+  id       BigInt @id @default(autoincrement())
+  userId   BigInt @unique
+  tenantId BigInt
+
+  user   User   @relation(fields: [userId], references: [id])
+  tenant Person @relation(fields: [tenantId], references: [id])
+}
+
+model UserInvite {
+  id           BigInt   @id @default(autoincrement())
+  email        String
+  enterpriseId BigInt
+  role         String   @default("Usuario")
+  status       String   @default("Pendente")
+  createdAt    DateTime @default(now())
+  invitedById  BigInt
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  invitedBy  User       @relation(fields: [invitedById], references: [id])
+}
+
+model ProductAttribute {
+  id         BigInt   @id @default(autoincrement())
+  publicCode String   @unique @default(cuid())
+  name       String   @unique
+  type       String   // "unidade_medida" | "marca" | "categoria" | "grupo" | "subgrupo"
+  status     String   @default("Ativo")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  unitProducts     Product[] @relation("ProductUnit")
+  brandProducts    Product[] @relation("ProductBrand")
+  categoryProducts Product[] @relation("ProductCategory")
+  groupProducts    Product[] @relation("ProductGroup")
+  subgroupProducts Product[] @relation("ProductSubgroup")
+  packageUnits     Package[] @relation("PackageUnit")
 }

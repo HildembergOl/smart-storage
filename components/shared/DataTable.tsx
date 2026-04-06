@@ -128,7 +128,7 @@ export function DataTable<T extends object>({
                 <TableHead
                   key={String(col.key)}
                   className={cn(
-                    "text-slate-400 font-semibold text-xs uppercase tracking-wider",
+                    "text-slate-400 font-semibold text-xs",
                     col.sortable &&
                       "cursor-pointer select-none hover:text-slate-200 transition-colors",
                     col.className,

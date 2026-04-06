@@ -50,8 +50,18 @@ body {
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* App-specific semantic tokens */
+  --color-app-bg: var(--app-bg);
+  --color-app-surface: var(--app-surface);
+  --color-app-surface-2: var(--app-surface-2);
+  --color-app-border: var(--app-border);
+  --color-app-text: var(--app-text);
+  --color-app-text-muted: var(--app-text-muted);
+  --color-app-text-subtle: var(--app-text-subtle);
 }
 
+/* ─── DARK THEME (default) ─── */
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -85,6 +95,15 @@ body {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Light-mode app tokens */
+  --app-bg: #f0f4f8;
+  --app-surface: #ffffff;
+  --app-surface-2: #e8edf3;
+  --app-border: #d1d9e0;
+  --app-text: #0f172a;
+  --app-text-muted: #475569;
+  --app-text-subtle: #94a3b8;
 }
 
 .dark {
@@ -119,6 +138,15 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Dark-mode app tokens */
+  --app-bg: #0f172a;
+  --app-surface: #1e293b;
+  --app-surface-2: #1e293b;
+  --app-border: rgba(148, 163, 184, 0.15);
+  --app-text: #f1f5f9;
+  --app-text-muted: #94a3b8;
+  --app-text-subtle: #475569;
 }
 
 @layer base {
@@ -127,10 +155,37 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
   }
   html {
     @apply font-mono;
   }
+}
+
+/* ─── App-level theme-aware utilities ─── */
+.app-bg {
+  background-color: var(--app-bg);
+}
+.app-surface {
+  background-color: var(--app-surface);
+}
+.app-border {
+  border-color: var(--app-border);
+}
+
+/* Light mode overrides for the dashboard shell */
+:root:not(.dark) .dashboard-sidebar {
+  background-color: #ffffff;
+  border-right-color: #e2e8f0;
+}
+:root:not(.dark) .dashboard-header {
+  background-color: rgba(248, 250, 252, 0.9);
+  border-bottom-color: #e2e8f0;
+}
+:root:not(.dark) .dashboard-main {
+  background-color: #f0f4f8;
 }
 
 html ::-webkit-scrollbar {

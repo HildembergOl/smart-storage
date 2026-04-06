@@ -1,0 +1,1 @@
+prisma/seed.ts(8,7): error TS2353: Object literal may only specify known properties, and 'code' does not exist in type '(Without<EnterpriseCreateInput, EnterpriseUncheckedCreateInput> & EnterpriseUncheckedCreateInput) | (Without<...> & EnterpriseCreateInput)'.

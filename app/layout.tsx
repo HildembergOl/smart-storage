@@ -1,17 +1,8 @@
 import type { Metadata } from "next";
-//import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-/*
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { ThemeProvider } from "@/components/shared/ThemeProvider";
+import { Toaster } from "sonner";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-*/
 export const metadata: Metadata = {
   title: "Smart Storage | Gestão de Armazenagem",
   description:
@@ -24,14 +15,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="dark">
-      <body
-        className={
-          `antialiased bg-[#0F172A] text-slate-200`
-          // ${geistSans.variable} ${geistMono.variable}
-        }
-      >
-        {children}
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className="antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

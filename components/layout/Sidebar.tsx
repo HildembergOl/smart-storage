@@ -15,6 +15,7 @@ import {
   CreditCard,
   Wallet,
   Settings,
+  UserCircle2,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -57,7 +58,11 @@ const navGroups = [
   },
   {
     label: "SISTEMA",
-    items: [{ label: "Configurações", icon: Settings, href: "/configuracoes" }],
+    items: [
+      { label: "Usuários", icon: Users, href: "/usuarios" },
+      { label: "Perfil", icon: UserCircle2, href: "/perfil" },
+      { label: "Configurações", icon: Settings, href: "/configuracoes" },
+    ],
   },
 ];
 
@@ -85,8 +90,8 @@ function NavItem({
         className={cn(
           "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group cursor-pointer",
           isActive
-            ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
-            : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50",
+            ? "bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30"
+            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50",
         )}
         title={collapsed ? label : undefined}
       >
@@ -94,7 +99,9 @@ function NavItem({
           className={cn(
             "shrink-0 transition-colors",
             collapsed ? "w-5 h-5" : "w-4 h-4",
-            isActive ? "text-sky-400" : "group-hover:text-slate-200",
+            isActive
+              ? "text-sky-600 dark:text-sky-400"
+              : "group-hover:text-slate-700 dark:group-hover:text-slate-200",
           )}
         />
         {!collapsed && (
@@ -116,12 +123,12 @@ function SidebarNav({ collapsed = false, onItemClick }: SidebarNavProps) {
       {navGroups.map((group, idx) => (
         <div key={idx} className={cn(idx > 0 && "mt-4")}>
           {!collapsed && (
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2">
+            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-3 mb-2">
               {group.label}
             </p>
           )}
           {collapsed && idx > 0 && (
-            <Separator className="my-2 bg-slate-700/50" />
+            <Separator className="my-2 bg-slate-200 dark:bg-slate-700/50" />
           )}
           <div className="space-y-0.5">
             {group.items.map((item) => (
@@ -148,23 +155,31 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col bg-[#1E293B] border-r border-slate-700/50 transition-all duration-300 shrink-0 h-screen sticky top-0",
+          "dashboard-sidebar hidden md:flex flex-col border-r transition-all duration-300 shrink-0 h-screen sticky top-0",
+          "bg-white dark:bg-[#1E293B] border-slate-200 dark:border-slate-700/50",
           collapsed ? "w-16" : "w-64",
         )}
       >
         {/* Logo */}
         <div
           className={cn(
-            "flex items-center gap-3 px-4 py-5 border-b border-slate-700/50",
+            "flex items-center gap-3 px-4 py-5 border-b border-slate-200 dark:border-slate-700/50",
             collapsed ? "justify-center" : "justify-between",
           )}
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center shrink-0">
-              <PackageOpen className="w-5 h-5 text-white" />
+              <PackageOpen
+                className="w-5 h-5 text-white"
+                onClick={() => {
+                  if (collapsed) {
+                    setCollapsed(false);
+                  }
+                }}
+              />
             </div>
             {!collapsed && (
-              <span className="text-white font-bold text-lg tracking-tight">
+              <span className="text-slate-800 dark:text-white font-bold text-lg tracking-tight">
                 SmartStorage
               </span>
             )}
@@ -174,7 +189,7 @@ export function Sidebar() {
               variant="ghost"
               size="icon"
               onClick={() => setCollapsed(true)}
-              className="text-slate-400 hover:text-slate-200 h-7 w-7"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 h-7 w-7"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
@@ -184,12 +199,12 @@ export function Sidebar() {
         <SidebarNav collapsed={collapsed} />
 
         {collapsed && (
-          <div className="p-2 border-t border-slate-700/50">
+          <div className="p-2 border-t border-slate-200 dark:border-slate-700/50">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setCollapsed(false)}
-              className="w-full text-slate-400 hover:text-slate-200"
+              className="w-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -201,21 +216,23 @@ export function Sidebar() {
       <div className="md:hidden fixed top-4 left-4 z-50">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger
-            className="inline-flex items-center justify-center rounded-lg w-9 h-9 bg-slate-800/80 border border-slate-700/50 text-slate-400 hover:text-slate-200"
+            className="inline-flex items-center justify-center rounded-lg w-9 h-9 bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 shadow-sm"
             id="mobile-menu-trigger"
           >
             <Menu className="w-5 h-5" />
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="w-64 p-0 bg-[#1E293B] border-r border-slate-700/50"
+            className="w-64 p-0 bg-white dark:bg-[#1E293B] border-r border-slate-200 dark:border-slate-700/50"
             showCloseButton={false}
           >
-            <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-700/50">
+            <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-200 dark:border-slate-700/50">
               <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center">
                 <PackageOpen className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white font-bold text-lg">SmartStorage</span>
+              <span className="text-slate-800 dark:text-white font-bold text-lg">
+                SmartStorage
+              </span>
             </div>
             <SidebarNav onItemClick={() => setMobileOpen(false)} />
           </SheetContent>

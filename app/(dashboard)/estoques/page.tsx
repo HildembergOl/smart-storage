@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable, Column } from "@/components/shared/DataTable";
-import { Filter, X } from "lucide-react";
+import { X, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useApp } from "@/lib/contexts/AppContext";
+import { toast } from "sonner";
 
 interface EstoqueSintetico {
   id: string;
@@ -30,6 +33,7 @@ interface EstoqueSintetico {
 interface EstoqueAnalitico {
   id: string;
   codigo: string;
+  produto: string;
   estoque: string;
   setor: string;
   rua: string;
@@ -43,149 +47,88 @@ interface EstoqueAnalitico {
   numeroSerie: string;
 }
 
-const mockSintetico: EstoqueSintetico[] = [
-  {
-    id: "1",
-    codEstoque: "EE 01",
-    descEstoque: "Estoque Principal",
-    codProduto: "PRD001",
-    descProduto: "Parafuso M8 Inox 50mm",
-    custoUnit: 2.5,
-    quantidade: 12,
-    total: 30,
-  },
-  {
-    id: "2",
-    codEstoque: "EE 01",
-    descEstoque: "Estoque Principal",
-    codProduto: "PRD002",
-    descProduto: "Cabo USB-C 2m",
-    custoUnit: 38.9,
-    quantidade: 5,
-    total: 194.5,
-  },
-  {
-    id: "3",
-    codEstoque: "EE 02",
-    descEstoque: "Depósito Norte",
-    codProduto: "PRD003",
-    descProduto: "Luva de Segurança P",
-    custoUnit: 15.0,
-    quantidade: 3,
-    total: 45,
-  },
-  {
-    id: "4",
-    codEstoque: "EE 02",
-    descEstoque: "Depósito Norte",
-    codProduto: "PRD047",
-    descProduto: 'Monitor LED 24"',
-    custoUnit: 890.0,
-    quantidade: 45,
-    total: 40050,
-  },
-  {
-    id: "5",
-    codEstoque: "EE 03",
-    descEstoque: "Armazém Sul",
-    codProduto: "PRD088",
-    descProduto: "Filtro de Ar G4",
-    custoUnit: 125.0,
-    quantidade: 8,
-    total: 1000,
-  },
-];
-
-const mockAnalitico: EstoqueAnalitico[] = [
-  {
-    id: "1",
-    codigo: "POS-A01-R01",
-    estoque: "EE 01",
-    setor: "A",
-    rua: "01",
-    bloco: "A",
-    andar: "1",
-    locacao: "01",
-    quantidade: 12,
-    lote: "LOT-2024-001",
-    validade: "31/12/2025",
-    grade: "",
-    numeroSerie: "",
-  },
-  {
-    id: "2",
-    codigo: "POS-A01-R02",
-    estoque: "EE 01",
-    setor: "A",
-    rua: "01",
-    bloco: "A",
-    andar: "1",
-    locacao: "02",
-    quantidade: 5,
-    lote: "",
-    validade: "",
-    grade: "",
-    numeroSerie: "SN-2024-8847",
-  },
-  {
-    id: "3",
-    codigo: "POS-B02-R01",
-    estoque: "EE 02",
-    setor: "B",
-    rua: "02",
-    bloco: "B",
-    andar: "2",
-    locacao: "01",
-    quantidade: 3,
-    lote: "",
-    validade: "",
-    grade: "G",
-    numeroSerie: "",
-  },
-  {
-    id: "4",
-    codigo: "POS-B02-R03",
-    estoque: "EE 02",
-    setor: "B",
-    rua: "02",
-    bloco: "B",
-    andar: "2",
-    locacao: "03",
-    quantidade: 45,
-    lote: "",
-    validade: "",
-    grade: "",
-    numeroSerie: "SN-2024-1122",
-  },
-];
-
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     v,
   );
 
 export default function EstoquesPage() {
+  const { enterpriseId, tenantId } = useApp();
+  
+  // States for Sintético
+  const [sinteticoData, setSinteticoData] = useState<EstoqueSintetico[]>([]);
+  const [loadingSintetico, setLoadingSintetico] = useState(false);
   const [filterEstoque, setFilterEstoque] = useState("todos");
   const [filterProduto, setFilterProduto] = useState("");
+  
+  // States for Analítico
+  const [analiticoData, setAnaliticoData] = useState<EstoqueAnalitico[]>([]);
+  const [loadingAnalitico, setLoadingAnalitico] = useState(false);
+  const [searchAnalitico, setSearchAnalitico] = useState("");
 
-  const filteredSintetico = mockSintetico.filter((e) => {
-    const matchEst =
-      filterEstoque === "todos" || e.codEstoque === filterEstoque;
-    const matchProd =
-      !filterProduto ||
-      e.descProduto.toLowerCase().includes(filterProduto.toLowerCase()) ||
-      e.codProduto.toLowerCase().includes(filterProduto.toLowerCase());
-    return matchEst && matchProd;
-  });
+  const fetchSintetico = useCallback(async () => {
+    if (!enterpriseId) return;
+    setLoadingSintetico(true);
+    try {
+      const params = new URLSearchParams({
+        enterpriseId,
+        ...(tenantId && { tenantId }),
+        ...(filterProduto && { search: filterProduto }),
+      });
+      const res = await fetch(`/api/estoques/sintetico?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSinteticoData(data);
+      } else {
+        toast.error("Erro ao carregar saldo sintético");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro de conexão");
+    } finally {
+      setLoadingSintetico(false);
+    }
+  }, [enterpriseId, tenantId, filterProduto]);
+
+  const fetchAnalitico = useCallback(async () => {
+    if (!enterpriseId) return;
+    setLoadingAnalitico(true);
+    try {
+      const params = new URLSearchParams({
+        enterpriseId,
+        ...(tenantId && { tenantId }),
+        ...(searchAnalitico && { search: searchAnalitico }),
+      });
+      const res = await fetch(`/api/estoques/analitico?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAnaliticoData(data);
+      } else {
+        toast.error("Erro ao carregar detalhamento analítico");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro de conexão");
+    } finally {
+      setLoadingAnalitico(false);
+    }
+  }, [enterpriseId, tenantId, searchAnalitico]);
+
+  useEffect(() => {
+    fetchSintetico();
+  }, [fetchSintetico]); // Auto load when context or fetch callback changes
+
+  const handleFiltrarSintetico = () => fetchSintetico();
+  const handleFiltrarAnalitico = () => fetchAnalitico();
 
   const colsSintetico: Column<EstoqueSintetico>[] = [
-    { key: "codEstoque", label: "Cód. Estoque", sortable: true },
-    { key: "descEstoque", label: "Desc. Estoque" },
-    { key: "codProduto", label: "Cód. Produto", className: "font-mono" },
-    { key: "descProduto", label: "Desc. Produto", sortable: true },
+    { key: "codEstoque", label: "Cód. estoque", sortable: true },
+    { key: "descEstoque", label: "Desc. estoque" },
+    { key: "codProduto", label: "Cód. produto", className: "font-mono" },
+    { key: "descProduto", label: "Desc. produto", sortable: true },
     {
       key: "custoUnit",
-      label: "Custo Unit.",
+      label: "Custo unit.",
       render: (v) => (
         <span className="text-slate-300">{formatCurrency(v as number)}</span>
       ),
@@ -215,6 +158,7 @@ export default function EstoquesPage() {
       sortable: true,
       className: "font-mono text-xs",
     },
+    { key: "produto", label: "Produto" },
     { key: "estoque", label: "Estoque" },
     { key: "setor", label: "Setor" },
     { key: "rua", label: "Rua" },
@@ -223,7 +167,7 @@ export default function EstoquesPage() {
     { key: "locacao", label: "Locação" },
     {
       key: "quantidade",
-      label: "Qtd",
+      label: "Quantidade",
       render: (v) => (
         <span className="font-semibold text-sky-400">{String(v)}</span>
       ),
@@ -231,33 +175,38 @@ export default function EstoquesPage() {
     { key: "lote", label: "Lote" },
     { key: "validade", label: "Validade" },
     { key: "grade", label: "Grade" },
-    { key: "numeroSerie", label: "Nº Série" },
+    { key: "numeroSerie", label: "Nº série" },
   ];
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-white">Consulta de Estoques</h1>
-        <p className="text-slate-400 text-sm">
-          Visão sintética e analítica do inventário
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-white">Consulta de Estoques</h1>
+          <p className="text-slate-400 text-sm">
+            Visão sintética e analítica do inventário
+          </p>
+        </div>
+        {tenantId && (
+          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+            Filtrado por Depositante
+          </Badge>
+        )}
       </div>
 
       <Card className="bg-slate-800/40 border-slate-700/50">
-        <Tabs defaultValue="sintetico">
+        <Tabs defaultValue="sintetico" onValueChange={(v) => v === "analitico" && analiticoData.length === 0 && fetchAnalitico()}>
           <CardHeader className="pb-0">
             <TabsList className="bg-slate-900/50 border border-slate-700/50">
               <TabsTrigger
                 value="sintetico"
                 className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400"
-                id="tab-sintetico"
               >
                 Sintético
               </TabsTrigger>
               <TabsTrigger
                 value="analitico"
                 className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400"
-                id="tab-analitico"
               >
                 Analítico
               </TabsTrigger>
@@ -266,71 +215,99 @@ export default function EstoquesPage() {
 
           <CardContent className="pt-4">
             <TabsContent value="sintetico" className="mt-0 space-y-4">
-              <div className="flex flex-wrap gap-3 items-end p-3 bg-slate-900/30 rounded-lg border border-slate-700/30">
-                <Filter className="w-4 h-4 text-slate-500 mt-1" />
-                <div className="flex-1 min-w-[150px] space-y-1">
-                  <label className="text-xs text-slate-400">Estoque</label>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 bg-slate-900/30 rounded-lg border border-slate-700/30">
+                <div className="md:col-span-4 space-y-2">
+                  <Label>Estoque</Label>
                   <Select
                     value={filterEstoque}
                     onValueChange={setFilterEstoque}
                   >
-                    <SelectTrigger
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                      id="filter-est-estoque"
-                    >
+                    <SelectTrigger className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
                       <SelectItem value="todos">Todos</SelectItem>
-                      <SelectItem value="EE 01">
-                        EE 01 — Estoque Principal
-                      </SelectItem>
-                      <SelectItem value="EE 02">
-                        EE 02 — Depósito Norte
-                      </SelectItem>
-                      <SelectItem value="EE 03">EE 03 — Armazém Sul</SelectItem>
+                      {/* Would be populated by an API in a real scenario */}
+                      <SelectItem value="GERAL">Geral</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex-1 min-w-[200px] space-y-1">
-                  <label className="text-xs text-slate-400">
-                    Produto (código ou descrição)
-                  </label>
+                <div className="md:col-span-5 space-y-2">
+                  <Label>Produto (código ou descrição)</Label>
                   <Input
                     placeholder="Buscar produto..."
                     value={filterProduto}
                     onChange={(e) => setFilterProduto(e.target.value)}
                     className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
-                    id="filter-est-produto"
                   />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFilterEstoque("todos");
-                    setFilterProduto("");
-                  }}
-                  className="text-slate-400 hover:text-slate-200 gap-1 h-9"
-                >
-                  <X className="w-3.5 h-3.5" />
-                  Limpar
-                </Button>
+                <div className="md:col-span-3 flex gap-2">
+                  <Button
+                    onClick={handleFiltrarSintetico}
+                    className="flex-1 bg-sky-500 hover:bg-sky-400 text-white h-9 gap-2"
+                    disabled={loadingSintetico}
+                  >
+                    {loadingSintetico ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    Filtrar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setFilterEstoque("todos");
+                      setFilterProduto("");
+                    }}
+                    className="h-9 w-9 text-slate-400 hover:text-slate-200 border border-slate-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <DataTable<EstoqueSintetico>
-                data={filteredSintetico}
+                data={sinteticoData}
                 columns={colsSintetico}
                 searchable={false}
+                loading={loadingSintetico}
                 emptyMessage="Nenhum estoque encontrado."
               />
             </TabsContent>
 
-            <TabsContent value="analitico" className="mt-0">
+            <TabsContent value="analitico" className="mt-0 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 bg-slate-900/30 rounded-lg border border-slate-700/30">
+                <div className="md:col-span-9 space-y-2">
+                  <Label>Busca analítica (posição, lote, série...)</Label>
+                  <Input
+                    placeholder="Filtrar detalhes..."
+                    value={searchAnalitico}
+                    onChange={(e) => setSearchAnalitico(e.target.value)}
+                    className="bg-slate-900/50 border-slate-700 text-slate-200 h-9 text-sm"
+                  />
+                </div>
+                <div className="md:col-span-3 flex gap-2">
+                  <Button
+                    onClick={handleFiltrarAnalitico}
+                    className="flex-1 bg-sky-500 hover:bg-sky-400 text-white h-9 gap-2"
+                    disabled={loadingAnalitico}
+                  >
+                    {loadingAnalitico ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    Filtrar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSearchAnalitico("")}
+                    className="h-9 w-9 text-slate-400 hover:text-slate-200 border border-slate-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
               <DataTable<EstoqueAnalitico>
-                data={mockAnalitico}
+                data={analiticoData}
                 columns={colsAnalitico}
+                loading={loadingAnalitico}
+                searchable={false}
                 emptyMessage="Nenhuma posição encontrada."
-                searchPlaceholder="Buscar por posição, lote, série..."
               />
             </TabsContent>
           </CardContent>

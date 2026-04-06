@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Storage WMS
 
-## Getting Started
+**Smart Storage** é um avançado Sistema de Gestão de Armazéns (WMS - Warehouse Management System), desenvolvido com foco em performance, modernidade e usabilidade premium. Este sistema foi desenhado para gerenciar de forma holística estoques, docas, processos intralogísticos (recebimento, separação, conferência e expedição) com uma arquitetura flexível baseada em múltiplos tenants e empresas.
 
-First, run the development server:
+## 🚀 Principais Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Multi-empresa e Tenant**: Suporte nativo à separação e o isolamento de dados de forma hierárquica usando Tenants e Enterprises.
+- **Gestão de Posições e Estoque**: Cadastro topográfico sofisticado do armazém (Setores, Corredores, Acessos) com visão sintética e analítica do estoque.
+- **Ecossistema de Atributos**: Centralização de características construtivas de produtos via Atributos Globais (Categorias, Grupos, Marcas).
+- **Dashboard e KPIs**: Insights dinâmicos acionáveis (Eficiência operatória, status de fluxo logístico) construídos sobre Recharts.
+- **Interface Premium**: Desenvolvido sobre Tailwind CSS 4, Base UI (React 19), com dark mode elegante, micro-interações via Framer Motion e notificações avançadas (Sonner).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Tecnologias Utilizadas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Next.js 15 (App Router)**: Framework React com features robustas, otimização de servidor, proxying HTTP.
+- **Prisma ORM**: Modelagem e governança declarativa de esquemas sobre PostgreSQL.
+- **Supabase**: Provedor robusto de autenticação, JWT tokens, Service Role e Gestão de Múltiplos Usuários integrados perfeitamente ao Next.js middleware / rotas Proxy.
+- **TypeScript**: Total cobertura e segurança de tipos de ponta a ponta.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📦 Como Instalar e Rodar Localmente
 
-## Learn More
+1. Clone o repositório
+2. Crie e preencha as variáveis de ambiente `.env.local` usando o layout base de infra (Acesso de Auth do Supabase, `DATABASE_URL` do Postgres).
+3. Execute `npm install`
+4. Empurre o novo esquema de banco de dados e as views executando:
+   ```bash
+   npx prisma db push
+   npx prisma generate
+   ```
+5. Inicie a aplicação no terminal:
+   ```bash
+   npm run dev
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+Acesse a aplicação em `http://localhost:3000`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📜 Regras de Desenvolvimento
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Antes de prosseguir com qualquer manutenção no ecossistema, os desenvolvedores de inteligência artificial ou engenheiros de software designados precisam obrigatoriamente realizar um parser primário da documentação principal de Contexto Sistêmico (`GEMINI.md`) disponível na raiz. O arquivo define o padrão comportamental das APIs com uso de Serialização BigInt, Promises no App Router Next.15, hooks exclusivos de Debounce e mais.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Desenvolvido primariamente como uma solução de nível enterprise (SaaS) combinando estética visual incomparável com performance rigorosa. Padrões abertos e fechados de uso comercial de ponta.

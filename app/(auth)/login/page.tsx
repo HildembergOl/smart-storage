@@ -9,11 +9,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-client";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const supabase = createClient();
 
   const handleLogin = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -24,26 +26,45 @@ export default function LoginPage() {
     const password = formData.get("senha") as string;
 
     if (!email || !password) {
-      console.log("Email or password is missing");
-      console.log(email, password);
       return setLoading(false);
     }
-
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    console.log(data, error);
-    // Supabase auth would go here
-    setTimeout(() => setLoading(false), 1500);
+    if (error) {
+      toast.error(
+        "Verifique suas credenciais, e-mail e senha",
+      );
+      return setLoading(false);
+    }
+    // Ensure User record exists in our DB (idempotent)
+    await fetch("/api/me", { method: "POST" });
     router.push("/");
   };
 
   const handleRegister = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => setLoading(false), 1500);
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("senha") as string;
+
+    if (!email || !password) {
+      return setLoading(false);
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      toast.error(
+        "Verifique suas credenciais, código de empresa, e-mail e senha",
+      );
+      return setLoading(false);
+    }
     router.push("/");
   };
 
