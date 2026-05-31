@@ -33,9 +33,7 @@ export default function LoginPage() {
       password,
     });
     if (error) {
-      toast.error(
-        "Verifique suas credenciais, e-mail e senha",
-      );
+      toast.error("Verifique suas credenciais, e-mail e senha");
       return setLoading(false);
     }
     // Ensure User record exists in our DB (idempotent)
@@ -117,21 +115,6 @@ export default function LoginPage() {
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label
-                      htmlFor="login-codigo"
-                      className="text-slate-300 text-sm"
-                    >
-                      Código de Empresa
-                    </Label>
-                    <Input
-                      id="login-codigo"
-                      name="codigo"
-                      placeholder="Ex: EMP001"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-sky-500 focus:ring-sky-500/20"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label
                       htmlFor="login-email"
                       className="text-slate-300 text-sm"
                     >
@@ -202,20 +185,6 @@ export default function LoginPage() {
               {/* Cadastro Tab */}
               <TabsContent value="cadastro" className="mt-0">
                 <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="reg-codigo"
-                      className="text-slate-300 text-sm"
-                    >
-                      Código da Empresa
-                    </Label>
-                    <Input
-                      id="reg-codigo"
-                      placeholder="Ex: EMP001"
-                      className="bg-slate-900/50 border-slate-700 text-slate-200 placeholder:text-slate-500 focus:border-sky-500"
-                      required
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label
                       htmlFor="reg-email"

@@ -95,6 +95,7 @@ export const AttributeSearchSelect = forwardRef<
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
+          nativeButton={false}
           render={
             <div className="relative w-full cursor-pointer">
               <Input

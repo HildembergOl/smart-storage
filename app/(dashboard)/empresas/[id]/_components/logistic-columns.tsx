@@ -25,6 +25,7 @@ export interface Position extends BaseLogistic {
   block?: string;
   floor?: string;
   location?: string;
+  barcode?: string | null;
   stock?: Stock;
   section?: Section;
   stockId: bigint;
@@ -162,6 +163,11 @@ export const getPositionColumns = (
         {(v as Section)?.description || "-"}
       </span>
     ),
+  },
+  {
+    key: "barcode",
+    label: "Código de Barras (ULID)",
+    className: "font-mono text-xs text-sky-400 select-all",
   },
   {
     key: "actions",

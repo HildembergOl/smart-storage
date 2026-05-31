@@ -37,6 +37,7 @@ model Enterprise {
   receipts         Receipt[]
   userEnterprises  UserEnterprise[]
   invites          UserInvite[]
+  inventories      Inventory[]
 }
 
 model Stock {
@@ -53,6 +54,7 @@ model Stock {
   productStocks ProductStock[]
   entries       Entry[]
   orders        Order[]
+  inventories   Inventory[]
 }
 
 model Section {
@@ -74,12 +76,14 @@ model Position {
   block        String?
   floor        String?
   location     String?
+  barcode      String? @unique
   enterpriseId BigInt
 
   enterprise       Enterprise        @relation(fields: [enterpriseId], references: [id])
   stock            Stock             @relation(fields: [stockId], references: [id])
   section          Section           @relation(fields: [sectionId], references: [id])
   productPositions ProductPosition[]
+  inventoryItems   InventoryItem[]
 }
 
 model Product {
@@ -112,6 +116,7 @@ model Product {
   entryItems        EntryItem[]
   orderItems        OrderItem[]
   marketplaceImages MarketplaceImage[]
+  inventoryItems    InventoryItem[]
 }
 
 model Package {
@@ -145,14 +150,15 @@ model ProductStock {
 }
 
 model ProductPosition {
-  id           BigInt    @id @default(autoincrement())
-  productId    BigInt
-  positionId   BigInt
-  quantity     Float     @default(0)
-  batch        String?
-  expiry       DateTime?
-  grid         String?
-  serialNumber String?
+  id                BigInt    @id @default(autoincrement())
+  productId         BigInt
+  positionId        BigInt
+  quantity          Float     @default(0)
+  batch             String?
+  expiry            DateTime?
+  manufacturingDate DateTime?
+  grid              String?
+  serialNumber      String?
 
   product  Product  @relation(fields: [productId], references: [id])
   position Position @relation(fields: [positionId], references: [id])
@@ -377,4 +383,36 @@ model ProductAttribute {
   groupProducts    Product[] @relation("ProductGroup")
   subgroupProducts Product[] @relation("ProductSubgroup")
   packageUnits     Package[] @relation("PackageUnit")
+}
+
+model Inventory {
+  id           BigInt    @id @default(autoincrement())
+  publicCode   String    @unique @default(cuid())
+  description  String
+  status       String    @default("Pendente") // "Pendente" | "Finalizado"
+  stockId      BigInt
+  enterpriseId BigInt
+  createdAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  enterprise   Enterprise      @relation(fields: [enterpriseId], references: [id])
+  stock        Stock           @relation(fields: [stockId], references: [id])
+  items        InventoryItem[]
+}
+
+model InventoryItem {
+  id                BigInt    @id @default(autoincrement())
+  inventoryId       BigInt
+  productId         BigInt
+  positionId        BigInt?
+  batch             String?
+  expiry            DateTime?
+  manufacturingDate DateTime?
+  serialNumber      String?
+  quantity          Float
+  recordedQty       Float
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+  position  Position? @relation(fields: [positionId], references: [id])
 }

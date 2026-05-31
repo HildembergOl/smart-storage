@@ -47,6 +47,7 @@ const navGroups = [
     items: [
       { label: "Entradas", icon: ArrowDownToLine, href: "/entradas" },
       { label: "Saídas", icon: ArrowUpFromLine, href: "/saidas" },
+      { label: "Inventários", icon: PackageOpen, href: "/inventario" },
     ],
   },
   {

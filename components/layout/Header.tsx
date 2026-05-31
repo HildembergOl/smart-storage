@@ -50,9 +50,9 @@ export function Header({ notificationCount = 3 }: HeaderProps) {
   };
 
   return (
-    <header className="dashboard-header h-16 border-b border-slate-700/50 dark:border-slate-700/50 dark:bg-[#0F172A]/80 bg-white/80 backdrop-blur-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-colors duration-200">
+    <header className="dashboard-header h-auto py-3 md:py-0 md:h-16 border-b border-slate-700/50 dark:border-slate-700/50 dark:bg-[#0F172A]/80 bg-white/80 backdrop-blur-sm flex flex-col-reverse md:flex-row md:items-center justify-between px-4 md:px-6 sticky top-0 z-40 transition-colors duration-200 gap-3 md:gap-0">
       {/* Left: Breadcrumb */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 w-full md:w-auto justify-start">
         <div className="hidden lg:flex items-center gap-2">
           <Building2 className="w-4 h-4 text-sky-500" />
           <span className="text-slate-400 text-sm font-semibold truncate max-w-[150px]">
@@ -64,7 +64,7 @@ export function Header({ notificationCount = 3 }: HeaderProps) {
       </div>
 
       {/* Right: Notifications + User */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 w-full md:w-auto justify-end">
         {/* Notifications */}
         <Button
           variant="ghost"

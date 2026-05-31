@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const enterpriseIdStr = searchParams.get("enterpriseId") || "";
     const search = searchParams.get("search") || "";
+    const ean = searchParams.get("ean") || "";
     const status = searchParams.get("status") || "";
     const controlType = searchParams.get("controlType") || "";
 
@@ -65,7 +66,14 @@ export async function GET(request: NextRequest) {
       enterpriseId: enterprise.id,
     };
 
-    if (search) {
+    if (ean) {
+      where.packages = {
+        some: {
+          barcode: ean,
+          status: "Ativo",
+        },
+      };
+    } else if (search) {
       where.OR = [
         { description: { contains: search, mode: "insensitive" } },
         { brand: { is: { name: { contains: search, mode: "insensitive" } } } },

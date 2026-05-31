@@ -36,9 +36,9 @@ const columns: Column<ProductPosition>[] = [
     },
   },
   {
-    key: "position",
+    key: "stock",
     label: "Estoque",
-    render: (v) => <span className="text-slate-400">{(v as ProductPosition["position"])?.stock?.description || "—"}</span>,
+    render: (_, row) => <span className="text-slate-400">{row.position?.stock?.description || "—"}</span>,
   },
   {
     key: "quantity",
