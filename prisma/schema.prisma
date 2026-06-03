@@ -38,6 +38,10 @@ model Enterprise {
   userEnterprises  UserEnterprise[]
   invites          UserInvite[]
   inventories      Inventory[]
+
+  movementProductPositions MovementProductPosition[]
+
+  movementProducts MovementProduct[]
 }
 
 model Stock {
@@ -55,6 +59,12 @@ model Stock {
   entries       Entry[]
   orders        Order[]
   inventories   Inventory[]
+
+  movementProductPositions MovementProductPosition[]
+
+  movementProducts MovementProduct[]
+
+  productPositions ProductPosition[]
 }
 
 model Section {
@@ -84,6 +94,8 @@ model Position {
   section          Section           @relation(fields: [sectionId], references: [id])
   productPositions ProductPosition[]
   inventoryItems   InventoryItem[]
+
+  movementProductPositions MovementProductPosition[]
 }
 
 model Product {
@@ -117,6 +129,10 @@ model Product {
   orderItems        OrderItem[]
   marketplaceImages MarketplaceImage[]
   inventoryItems    InventoryItem[]
+
+  movementProductPositions MovementProductPosition[]
+
+  movementProducts MovementProduct[]
 }
 
 model Package {
@@ -149,8 +165,32 @@ model ProductStock {
   stock   Stock   @relation(fields: [stockId], references: [id])
 }
 
+model MovementProduct {
+  id BigInt @id @default(autoincrement())
+  enterpriseId BigInt
+  productId BigInt
+  stockId BigInt
+  quantity Float @default(0)
+  lastQuantity Float @default(0)
+  costPrice Float @default(0)
+  typeOperationId BigInt
+  typeMovementId BigInt
+  date DateTime @default(now())
+  userId BigInt
+  description String?
+  
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  stock Stock @relation(fields: [stockId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  typeOperation MovementAttribute @relation("TypeOperationStock", fields: [typeOperationId], references: [id])
+  typeMovement MovementAttribute @relation("TypeMovementStock", fields: [typeMovementId], references: [id])
+}
+
 model ProductPosition {
   id                BigInt    @id @default(autoincrement())
+  stockId           BigInt
   productId         BigInt
   positionId        BigInt
   quantity          Float     @default(0)
@@ -161,7 +201,38 @@ model ProductPosition {
   serialNumber      String?
 
   product  Product  @relation(fields: [productId], references: [id])
+  stock    Stock    @relation(fields: [stockId], references: [id])
   position Position @relation(fields: [positionId], references: [id])
+}
+
+model MovementProductPosition {
+  id BigInt @id @default(autoincrement())
+  enterpriseId BigInt
+  productId BigInt
+  stockId BigInt
+  positionId BigInt
+  quantity Float @default(0)
+  lastQuantity Float @default(0)
+  costPrice Float @default(0)
+  typeOperationId BigInt
+  typeMovementId BigInt
+  date DateTime @default(now())
+  userId BigInt
+  description String?
+  batch String?
+  expiry DateTime?
+  manufacturingDate DateTime?
+  grid String?
+  serialNumber String?
+  
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  stock Stock @relation(fields: [stockId], references: [id])
+  position Position @relation(fields: [positionId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  typeOperation MovementAttribute @relation("TypeOperationPosition", fields: [typeOperationId], references: [id])
+  typeMovement MovementAttribute @relation("TypeMovementPosition", fields: [typeMovementId], references: [id])
 }
 
 model MarketplaceImage {
@@ -333,6 +404,12 @@ model User {
   enterprises UserEnterprise[]
   tenant      UserTenant?
   invites     UserInvite[]
+
+  movementProductPositions MovementProductPosition[]
+
+  movementProducts MovementProduct[]
+
+  inventoryItems InventoryItem[]
 }
 
 model UserEnterprise {
@@ -366,6 +443,25 @@ model UserInvite {
 
   enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
   invitedBy  User       @relation(fields: [invitedById], references: [id])
+}
+
+model MovementAttribute {
+  id         BigInt   @id @default(autoincrement())
+  publicCode String   @unique @default(cuid())
+  name       String   @unique
+  type       String   // Operacao | Movimento
+  status     String   @default("Ativo")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+
+  typeOperationPosition MovementProductPosition[] @relation("TypeOperationPosition")
+
+  typeMovementPosition MovementProductPosition[] @relation("TypeMovementPosition")
+
+  typeOperationStock MovementProduct[] @relation("TypeOperationStock")
+
+  typeMovementStock MovementProduct[] @relation("TypeMovementStock")
 }
 
 model ProductAttribute {
@@ -409,10 +505,15 @@ model InventoryItem {
   expiry            DateTime?
   manufacturingDate DateTime?
   serialNumber      String?
+  grid              String?
   quantity          Float
   recordedQty       Float
+  userId            BigInt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   inventory Inventory @relation(fields: [inventoryId], references: [id])
   product   Product   @relation(fields: [productId], references: [id])
   position  Position? @relation(fields: [positionId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 }

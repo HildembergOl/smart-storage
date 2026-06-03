@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -11,8 +11,11 @@ export async function POST(
 
     const { createServerSupabase } = await import("@/lib/supabase");
     const supabase = await createServerSupabase();
-    const { data: { user: caller } } = await supabase.auth.getUser();
-    if (!caller) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    const {
+      data: { user: caller },
+    } = await supabase.auth.getUser();
+    if (!caller)
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const inventory = await prisma.inventory.findFirst({
       where: {
@@ -25,30 +28,48 @@ export async function POST(
     });
 
     if (!inventory) {
-      return NextResponse.json({ error: "Inventário não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Inventário não encontrado" },
+        { status: 404 },
+      );
     }
 
     // Validar alçada
     const userAccess = await prisma.userEnterprise.findFirst({
-      where: { user: { publicKey: caller.id }, enterpriseId: inventory.enterpriseId },
+      where: {
+        user: { publicKey: caller.id },
+        enterpriseId: inventory.enterpriseId,
+      },
     });
     if (!userAccess) {
-      return NextResponse.json({ error: "Sem acesso a esta empresa" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Sem acesso a esta empresa" },
+        { status: 403 },
+      );
     }
 
     if (inventory.status === "Finalizado") {
-      return NextResponse.json({ error: "Não é possível alterar um inventário finalizado" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Não é possível alterar um inventário finalizado" },
+        { status: 400 },
+      );
     }
 
     if (!body.productId || body.quantity === undefined) {
-      return NextResponse.json({ error: "productId e quantity são obrigatórios" }, { status: 400 });
+      return NextResponse.json(
+        { error: "productId e quantity são obrigatórios" },
+        { status: 400 },
+      );
     }
 
     const productId = BigInt(body.productId);
     const batch = body.batch || null;
     const expiry = body.expiry ? new Date(body.expiry) : null;
-    const manufacturingDate = body.manufacturingDate ? new Date(body.manufacturingDate) : null;
+    const manufacturingDate = body.manufacturingDate
+      ? new Date(body.manufacturingDate)
+      : null;
     const serialNumber = body.serialNumber || null;
+    const grid = body.grid || null;
     const quantity = Number(body.quantity);
 
     let positionId: bigint | null = null;
@@ -59,7 +80,9 @@ export async function POST(
         where: {
           OR: [
             { publicCode: body.positionCode },
-            ...(/^\d+$/.test(body.positionCode) ? [{ id: BigInt(body.positionCode) }] : []),
+            ...(/^\d+$/.test(body.positionCode)
+              ? [{ id: BigInt(body.positionCode) }]
+              : []),
           ],
           enterpriseId: inventory.enterpriseId,
         },
@@ -68,7 +91,12 @@ export async function POST(
       if (pos) {
         positionId = pos.id;
       } else {
-        return NextResponse.json({ error: `Posição não encontrada com o código: ${body.positionCode}` }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: `Posição não encontrada com o código: ${body.positionCode}`,
+          },
+          { status: 400 },
+        );
       }
     }
 
@@ -106,6 +134,8 @@ export async function POST(
         expiry,
         manufacturingDate,
         serialNumber,
+        grid,
+        userId: userAccess.userId,
       },
     });
 
@@ -147,8 +177,10 @@ export async function POST(
           expiry,
           manufacturingDate,
           serialNumber,
+          grid,
           quantity,
           recordedQty,
+          userId: userAccess.userId,
         },
         include: {
           product: {
@@ -181,6 +213,10 @@ export async function POST(
         productId: savedItem.productId.toString(),
         positionId: savedItem.positionId?.toString() || null,
         serialNumber: savedItem.serialNumber || null,
+        grid: savedItem.grid || null,
+        userId: savedItem.userId.toString(),
+        createdAt: savedItem.createdAt.toISOString(),
+        updatedAt: savedItem.updatedAt.toISOString(),
         product: {
           ...savedItem.product,
           id: savedItem.product.id.toString(),
@@ -192,17 +228,20 @@ export async function POST(
             }
           : null,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error creating inventory item:", error);
-    return NextResponse.json({ error: "Erro ao adicionar item ao inventário" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro ao adicionar item ao inventário" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -210,8 +249,11 @@ export async function PATCH(
 
     const { createServerSupabase } = await import("@/lib/supabase");
     const supabase = await createServerSupabase();
-    const { data: { user: caller } } = await supabase.auth.getUser();
-    if (!caller) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    const {
+      data: { user: caller },
+    } = await supabase.auth.getUser();
+    if (!caller)
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const inventory = await prisma.inventory.findFirst({
       where: {
@@ -224,24 +266,39 @@ export async function PATCH(
     });
 
     if (!inventory) {
-      return NextResponse.json({ error: "Inventário não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Inventário não encontrado" },
+        { status: 404 },
+      );
     }
 
     // Validar alçada
     const userAccess = await prisma.userEnterprise.findFirst({
-      where: { user: { publicKey: caller.id }, enterpriseId: inventory.enterpriseId },
+      where: {
+        user: { publicKey: caller.id },
+        enterpriseId: inventory.enterpriseId,
+      },
     });
     if (!userAccess) {
-      return NextResponse.json({ error: "Sem acesso a esta empresa" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Sem acesso a esta empresa" },
+        { status: 403 },
+      );
     }
 
     if (inventory.status === "Finalizado") {
-      return NextResponse.json({ error: "Não é possível alterar um inventário finalizado" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Não é possível alterar um inventário finalizado" },
+        { status: 400 },
+      );
     }
 
     const itemId = body.itemId || body.id;
     if (!itemId) {
-      return NextResponse.json({ error: "id do item é obrigatório" }, { status: 400 });
+      return NextResponse.json(
+        { error: "id do item é obrigatório" },
+        { status: 400 },
+      );
     }
 
     const itemBigId = BigInt(itemId);
@@ -250,7 +307,10 @@ export async function PATCH(
     });
 
     if (!existingItem) {
-      return NextResponse.json({ error: "Item de inventário não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Item de inventário não encontrado" },
+        { status: 404 },
+      );
     }
 
     let positionId: bigint | null | undefined = undefined;
@@ -268,7 +328,9 @@ export async function PATCH(
           where: {
             OR: [
               { publicCode: body.positionCode },
-              ...(/^\d+$/.test(body.positionCode) ? [{ id: BigInt(body.positionCode) }] : []),
+              ...(/^\d+$/.test(body.positionCode)
+                ? [{ id: BigInt(body.positionCode) }]
+                : []),
             ],
             enterpriseId: inventory.enterpriseId,
           },
@@ -277,7 +339,12 @@ export async function PATCH(
         if (pos) {
           positionId = pos.id;
         } else {
-          return NextResponse.json({ error: `Posição não encontrada com o código: ${body.positionCode}` }, { status: 400 });
+          return NextResponse.json(
+            {
+              error: `Posição não encontrada com o código: ${body.positionCode}`,
+            },
+            { status: 400 },
+          );
         }
       }
     }
@@ -285,11 +352,29 @@ export async function PATCH(
     const updatedItem = await prisma.inventoryItem.update({
       where: { id: itemBigId },
       data: {
-        quantity: body.quantity !== undefined ? Number(body.quantity) : undefined,
+        quantity:
+          body.quantity !== undefined ? Number(body.quantity) : undefined,
         batch: body.batch !== undefined ? body.batch : undefined,
-        expiry: body.expiry !== undefined ? (body.expiry ? new Date(body.expiry) : null) : undefined,
-        manufacturingDate: body.manufacturingDate !== undefined ? (body.manufacturingDate ? new Date(body.manufacturingDate) : null) : undefined,
-        serialNumber: body.serialNumber !== undefined ? body.serialNumber || null : undefined,
+        expiry:
+          body.expiry !== undefined
+            ? body.expiry
+              ? new Date(body.expiry)
+              : null
+            : undefined,
+        manufacturingDate:
+          body.manufacturingDate !== undefined
+            ? body.manufacturingDate
+              ? new Date(body.manufacturingDate)
+              : null
+            : undefined,
+        serialNumber:
+          body.serialNumber !== undefined
+            ? body.serialNumber || null
+            : undefined,
+        grid:
+          body.grid !== undefined
+            ? body.grid || null
+            : undefined,
         positionId,
       },
       include: {
@@ -321,6 +406,10 @@ export async function PATCH(
       productId: updatedItem.productId.toString(),
       positionId: updatedItem.positionId?.toString() || null,
       serialNumber: updatedItem.serialNumber || null,
+      grid: updatedItem.grid || null,
+      userId: updatedItem.userId.toString(),
+      createdAt: updatedItem.createdAt.toISOString(),
+      updatedAt: updatedItem.updatedAt.toISOString(),
       product: {
         ...updatedItem.product,
         id: updatedItem.product.id.toString(),
@@ -334,13 +423,16 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Error updating inventory item:", error);
-    return NextResponse.json({ error: "Erro ao atualizar item do inventário" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro ao atualizar item do inventário" },
+      { status: 500 },
+    );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -350,8 +442,11 @@ export async function DELETE(
 
     const { createServerSupabase } = await import("@/lib/supabase");
     const supabase = await createServerSupabase();
-    const { data: { user: caller } } = await supabase.auth.getUser();
-    if (!caller) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    const {
+      data: { user: caller },
+    } = await supabase.auth.getUser();
+    if (!caller)
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
 
     const inventory = await prisma.inventory.findFirst({
       where: {
@@ -364,23 +459,38 @@ export async function DELETE(
     });
 
     if (!inventory) {
-      return NextResponse.json({ error: "Inventário não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Inventário não encontrado" },
+        { status: 404 },
+      );
     }
 
     // Validar alçada
     const userAccess = await prisma.userEnterprise.findFirst({
-      where: { user: { publicKey: caller.id }, enterpriseId: inventory.enterpriseId },
+      where: {
+        user: { publicKey: caller.id },
+        enterpriseId: inventory.enterpriseId,
+      },
     });
     if (!userAccess) {
-      return NextResponse.json({ error: "Sem acesso a esta empresa" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Sem acesso a esta empresa" },
+        { status: 403 },
+      );
     }
 
     if (inventory.status === "Finalizado") {
-      return NextResponse.json({ error: "Não é possível alterar um inventário finalizado" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Não é possível alterar um inventário finalizado" },
+        { status: 400 },
+      );
     }
 
     if (!itemId) {
-      return NextResponse.json({ error: "itemId é obrigatório" }, { status: 400 });
+      return NextResponse.json(
+        { error: "itemId é obrigatório" },
+        { status: 400 },
+      );
     }
 
     await prisma.inventoryItem.delete({
@@ -390,6 +500,9 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     console.error("Error deleting inventory item:", error);
-    return NextResponse.json({ error: "Erro ao excluir item do inventário" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro ao excluir item do inventário" },
+      { status: 500 },
+    );
   }
 }

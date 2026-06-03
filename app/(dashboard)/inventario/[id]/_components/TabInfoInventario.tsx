@@ -40,6 +40,7 @@ export interface ItemContagemInput {
   expiry?: string;
   manufacturingDate?: string;
   serialNumber?: string;
+  grid?: string;
   quantity?: number;
 }
 
@@ -228,8 +229,15 @@ export function TabInfoInventario({
   // Add or edit counted item
   const handleSaveItem = async () => {
     if (isFinished) return;
-    const { productId, quantity, positionCode, batch, expiry, serialNumber } =
-      novoItem;
+    const {
+      productId,
+      quantity,
+      positionCode,
+      batch,
+      expiry,
+      serialNumber,
+      grid,
+    } = novoItem;
 
     if (!productId || quantity === undefined) {
       toast.error(
@@ -266,6 +274,13 @@ export function TabInfoInventario({
       }
     }
 
+    if (novoItem.controlType === "Grade") {
+      if (!grid) {
+        toast.error("Por favor, informe a grade.");
+        return;
+      }
+    }
+
     if (novoItem.controlType === "NumeroSerie") {
       if (!serialNumber) {
         toast.error("Por favor, informe o número de série.");
@@ -282,6 +297,7 @@ export function TabInfoInventario({
       expiry: expiry || null,
       manufacturingDate: novoItem.manufacturingDate || null,
       serialNumber: serialNumber || null,
+      grid: grid || null,
     };
 
     const areDatesEqual = (
@@ -315,6 +331,7 @@ export function TabInfoInventario({
             ? new Date(novoItem.manufacturingDate).toISOString()
             : null,
           serialNumber: serialNumber || null,
+          grid: grid || null,
           positionId: matchedPosition.id.toString(),
           position: {
             id: matchedPosition.id.toString(),
@@ -353,6 +370,7 @@ export function TabInfoInventario({
             expiry: "",
             manufacturingDate: "",
             serialNumber: "",
+            grid: "",
           }));
           setProductSearch("");
           setEanSearch("");
@@ -404,13 +422,15 @@ export function TabInfoInventario({
           );
           const matchSerial =
             (item.serialNumber || null) === (serialNumber || null);
+          const matchGrid = (item.grid || null) === (grid || null);
           return (
             matchProduct &&
             matchPosition &&
             matchBatch &&
             matchExpiry &&
             matchMfg &&
-            matchSerial
+            matchSerial &&
+            matchGrid
           );
         });
 
@@ -444,6 +464,10 @@ export function TabInfoInventario({
               ? new Date(novoItem.manufacturingDate).toISOString()
               : null,
             serialNumber: serialNumber || null,
+            grid: grid || null,
+            userId: "",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             quantity,
             recordedQty: 0,
             saving: "pending" as const,
@@ -483,6 +507,7 @@ export function TabInfoInventario({
             expiry: "",
             manufacturingDate: "",
             serialNumber: "",
+            grid: "",
           }));
           setProductSearch("");
           setEanSearch("");
@@ -572,6 +597,7 @@ export function TabInfoInventario({
         ? item.manufacturingDate.split("T")[0]
         : "",
       serialNumber: item.serialNumber || "",
+      grid: item.grid || "",
       quantity: item.quantity,
     });
     setProductSearch(item.product.description);
@@ -588,12 +614,13 @@ export function TabInfoInventario({
       expiry: "",
       manufacturingDate: "",
       serialNumber: "",
+      grid: "",
     });
     setProductSearch("");
     setEanSearch("");
   };
 
-  // Check if product requires batch, manufacturing, expiry or serial controls
+  // Check if product requires batch, manufacturing, expiry, serial or grid controls
   const needsBatch =
     !novoItem.controlType ||
     novoItem.controlType === "Lote" ||
@@ -602,6 +629,7 @@ export function TabInfoInventario({
     !novoItem.controlType || novoItem.controlType === "Lote";
   const needsExpiry =
     !novoItem.controlType || novoItem.controlType === "Validade";
+  const needsGrid = !novoItem.controlType || novoItem.controlType === "Grade";
   const needsSerial =
     !novoItem.controlType || novoItem.controlType === "NumeroSerie";
 
@@ -830,7 +858,8 @@ export function TabInfoInventario({
                     const val = e.target.value;
                     setNovoItem((p) => ({
                       ...p,
-                      quantity: val === "" ? undefined : Number(val),
+                      quantity:
+                        Number(val) < 0 || isNaN(Number(val)) ? 0 : Number(val),
                     }));
                   }}
                   placeholder="0"
@@ -839,8 +868,8 @@ export function TabInfoInventario({
               </div>
             </div>
 
-            {/* Bottom row options (Lote, Fabricação, Validade, Número de Série) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            {/* Bottom row options (Lote, Fabricação, Validade, Grade, Número de Série) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
               <div className="space-y-1">
                 <Label className="text-slate-300 text-xs">Lote</Label>
                 <Input
@@ -879,6 +908,19 @@ export function TabInfoInventario({
                     setNovoItem((prev) => ({ ...prev, expiry: e.target.value }))
                   }
                   disabled={!needsExpiry}
+                  className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-slate-300 text-xs">Grade</Label>
+                <Input
+                  value={novoItem.grid || ""}
+                  onChange={(e) =>
+                    setNovoItem((prev) => ({ ...prev, grid: e.target.value }))
+                  }
+                  placeholder={needsGrid ? "Ex: M/Verde" : "Não aplicável"}
+                  disabled={!needsGrid}
                   className="bg-slate-900/50 border-slate-700 text-slate-200 h-8 text-sm"
                 />
               </div>
@@ -1024,6 +1066,7 @@ export function TabInfoInventario({
                           {item.batch ||
                           item.manufacturingDate ||
                           item.expiry ||
+                          item.grid ||
                           item.serialNumber ? (
                             <div className="flex flex-col gap-0.5">
                               {item.batch && <span>Lote: {item.batch}</span>}
@@ -1043,6 +1086,7 @@ export function TabInfoInventario({
                                   )}
                                 </span>
                               )}
+                              {item.grid && <span>Grade: {item.grid}</span>}
                               {item.serialNumber && (
                                 <span>Série: {item.serialNumber}</span>
                               )}
@@ -1177,6 +1221,7 @@ export function TabInfoInventario({
                         {item.batch ||
                         item.manufacturingDate ||
                         item.expiry ||
+                        item.grid ||
                         item.serialNumber ? (
                           <div className="flex flex-col text-[11px] text-slate-300 gap-0.5">
                             {item.batch && <span>Lote: {item.batch}</span>}
@@ -1196,6 +1241,7 @@ export function TabInfoInventario({
                                 )}
                               </span>
                             )}
+                            {item.grid && <span>Grade: {item.grid}</span>}
                             {item.serialNumber && (
                               <span>Série: {item.serialNumber}</span>
                             )}

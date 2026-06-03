@@ -42,6 +42,10 @@ export interface InventoryFormItem {
   expiry: string | null;
   manufacturingDate: string | null;
   serialNumber: string | null;
+  grid: string | null;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
   quantity: number;
   recordedQty: number;
   saving?: "pending" | "success";
